@@ -621,8 +621,14 @@ export class ProjectDetails extends React.Component<RouteComponentProps<{name: s
                             title: 'APPLICATIONS',
                             view: (
                                 <div>
-                                    <DataLoader load={() => services.applications.list([proj.metadata.name])}>
-                                        {apps => <Link to={'/applications?proj=' + proj.metadata.name}>{apps.items.length}</Link>}
+                                    <DataLoader
+                                        load={() =>
+                                            services.applications.list({
+                                                projects: [proj.metadata.name],
+                                                limit: 1
+                                            })
+                                        }>
+                                        {apps => <Link to={'/applications?proj=' + proj.metadata.name}>{apps.stats.total}</Link>}
                                     </DataLoader>
                                 </div>
                             )

@@ -48,3 +48,4 @@ export const services: Services = {
 
 export * from './projects-service';
 export * from './view-preferences-service';
+export * from './applications-service';

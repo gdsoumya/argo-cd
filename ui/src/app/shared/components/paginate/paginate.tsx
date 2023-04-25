@@ -13,6 +13,7 @@ export interface SortOption<T> {
 
 export interface PaginateProps<T> {
     page: number;
+    total?: number;
     onPageChange: (page: number) => any;
     children: (data: T[]) => React.ReactNode;
     data: T[];
@@ -23,14 +24,15 @@ export interface PaginateProps<T> {
     sortOptions?: SortOption<T>[];
 }
 
-export function Paginate<T>({page, onPageChange, children, data, emptyState, preferencesKey, header, showHeader, sortOptions}: PaginateProps<T>) {
+export function Paginate<T>({page, onPageChange, children, data, emptyState, preferencesKey, header, showHeader, sortOptions, total}: PaginateProps<T>) {
+    const totalItems = total || data.length;
     return (
         <DataLoader load={() => services.viewPreferences.getPreferences()}>
             {pref => {
                 preferencesKey = preferencesKey || 'default';
                 const pageSize = pref.pageSizes[preferencesKey] || 10;
                 const sortOption = sortOptions ? (pref.sortOptions && pref.sortOptions[preferencesKey]) || sortOptions[0].title : '';
-                const pageCount = pageSize === -1 ? 1 : Math.ceil(data.length / pageSize);
+                const pageCount = pageSize === -1 ? 1 : Math.ceil(totalItems / pageSize);
                 if (pageCount <= page) {
                     page = pageCount - 1;
                 }
@@ -39,7 +41,7 @@ export function Paginate<T>({page, onPageChange, children, data, emptyState, pre
                     return (
                         <div style={{marginBottom: '0.5em'}}>
                             <div style={{display: 'flex', alignItems: 'center', marginBottom: '0.5em', paddingLeft: '1em'}}>
-                                {pageCount > 1 && (
+                                {totalItems > 0 && (
                                     <ReactPaginate
                                         containerClassName='paginate__paginator'
                                         forcePage={page}
@@ -76,11 +78,11 @@ export function Paginate<T>({page, onPageChange, children, data, emptyState, pre
                                     <DropDownMenu
                                         anchor={() => (
                                             <a>
-                                                Items per page: {pageSize === -1 ? 'all' : pageSize} <i className='fa fa-caret-down' />
+                                                Items per page: {pageSize} <i className='fa fa-caret-down' />
                                             </a>
                                         )}
-                                        items={[5, 10, 15, 20, -1].map(count => ({
-                                            title: count === -1 ? 'all' : count.toString(),
+                                        items={[5, 10, 15, 20, 100, 500].map(count => ({
+                                            title: count.toString(),
                                             action: () => {
                                                 pref.pageSizes[preferencesKey] = count;
                                                 services.viewPreferences.updatePreferences(pref);
@@ -103,7 +105,7 @@ export function Paginate<T>({page, onPageChange, children, data, emptyState, pre
                 return (
                     <React.Fragment>
                         <div className='paginate'>{paginator()}</div>
-                        {data.length === 0 && emptyState ? emptyState() : children(pageSize === -1 ? data : data.slice(pageSize * page, pageSize * (page + 1)))}
+                        {totalItems === 0 && emptyState ? emptyState() : children(pageSize === -1 || total ? data : data.slice(pageSize * page, pageSize * (page + 1)))}
                         <div className='paginate'>{pageCount > 1 && paginator()}</div>
                     </React.Fragment>
                 );

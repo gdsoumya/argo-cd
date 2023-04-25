@@ -251,6 +251,8 @@ const (
 	EnvGnuPGHome = "ARGOCD_GNUPGHOME"
 	// EnvWatchAPIBufferSize is the buffer size used to transfer K8S watch events to watch API consumer
 	EnvWatchAPIBufferSize = "ARGOCD_WATCH_API_BUFFER_SIZE"
+	// EnvMaxResourceListLimit is the maximum number of resources returned in a list from the API server
+	EnvMaxResourceListLimit = "ARGOCD_MAX_LIST_LIMIT"
 	// EnvPauseGenerationAfterFailedAttempts will pause manifest generation after the specified number of failed generation attempts
 	EnvPauseGenerationAfterFailedAttempts = "ARGOCD_PAUSE_GEN_AFTER_FAILED_ATTEMPTS"
 	// EnvPauseGenerationMinutes pauses manifest generation for the specified number of minutes, after sufficient manifest generation failures

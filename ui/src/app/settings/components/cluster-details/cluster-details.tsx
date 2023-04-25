@@ -91,15 +91,14 @@ export const ClusterDetails = (props: RouteComponentProps<{server: string}>) => 
                                     title: 'APPLICATIONS',
                                     view: (
                                         <div>
-                                            <DataLoader load={() => services.applications.list([])}>
-                                                {apps => (
-                                                    <Link to={`/applications?cluster=${formatClusterQueryParam(cluster)}`}>
-                                                        {
-                                                            apps.items.filter(app => app.spec.destination.name === cluster.name || app.spec.destination.server === cluster.server)
-                                                                .length
-                                                        }
-                                                    </Link>
-                                                )}
+                                            <DataLoader
+                                                load={() =>
+                                                    services.applications.list({
+                                                        clusters: [cluster.name, cluster.server],
+                                                        limit: 1
+                                                    })
+                                                }>
+                                                {apps => <Link to={`/applications?cluster=${formatClusterQueryParam(cluster)}`}>{apps.stats.total}</Link>}
                                             </DataLoader>
                                         </div>
                                     )

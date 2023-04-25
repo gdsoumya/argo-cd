@@ -19,44 +19,43 @@ syncColors.set('Unknown', COLORS.sync.unknown);
 syncColors.set('Synced', COLORS.sync.synced);
 syncColors.set('OutOfSync', COLORS.sync.out_of_sync);
 
-export const ApplicationsSummary = ({applications}: {applications: models.Application[]}) => {
-    const sync = new Map<string, number>();
-    applications.forEach(app => sync.set(app.status.sync.status, (sync.get(app.status.sync.status) || 0) + 1));
-    const health = new Map<string, number>();
-    applications.forEach(app => health.set(app.status.health.status, (health.get(app.status.health.status) || 0) + 1));
-
+export const ApplicationsSummary = ({stats}: {stats: models.ApplicationListStats}) => {
     const attributes = [
         {
             title: 'APPLICATIONS',
-            value: applications.length
+            value: stats.total
         },
         {
             title: 'SYNCED',
-            value: applications.filter(app => app.status.sync.status === 'Synced').length
+            value: stats.totalBySyncStatus?.Synced || 0
         },
         {
             title: 'HEALTHY',
-            value: applications.filter(app => app.status.health.status === 'Healthy').length
+            value: stats.totalByHealthStatus?.Healthy || 0
         },
         {
             title: 'CLUSTERS',
-            value: new Set(applications.map(app => app.spec.destination.server || app.spec.destination.name)).size
+            value: stats.destinations?.length || 0
         },
         {
             title: 'NAMESPACES',
-            value: new Set(applications.map(app => app.spec.destination.namespace)).size
+            value: stats.namespaces?.length || 0
         }
     ];
 
     const charts = [
         {
             title: 'Sync',
-            data: Array.from(sync.keys()).map(key => ({title: key, value: sync.get(key), color: syncColors.get(key as models.SyncStatusCode)})),
+            data: Object.keys(stats.totalBySyncStatus || {}).map(key => ({title: key, value: stats.totalBySyncStatus[key], color: syncColors.get(key as models.SyncStatusCode)})),
             legend: syncColors as Map<string, string>
         },
         {
             title: 'Health',
-            data: Array.from(health.keys()).map(key => ({title: key, value: health.get(key), color: healthColors.get(key as models.HealthStatusCode)})),
+            data: Object.keys(stats.totalByHealthStatus || {}).map(key => ({
+                title: key,
+                value: stats.totalByHealthStatus[key],
+                color: healthColors.get(key as models.HealthStatusCode)
+            })),
             legend: healthColors as Map<string, string>
         }
     ];

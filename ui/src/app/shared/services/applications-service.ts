@@ -6,27 +6,58 @@ import * as models from '../models';
 import {isValidURL} from '../utils';
 import requests from './requests';
 
-interface QueryOptions {
-    fields: string[];
-    exclude?: boolean;
+export interface AppsQuery {
+    name?: string;
+    refresh?: string;
+    search?: string;
+    projects?: string[];
+    resourceVersion?: string;
     selector?: string;
+    repo?: string;
     appNamespace?: string;
+    minName?: string;
+    maxName?: string;
+    repos?: string[];
+    clusters?: string[];
+    namespaces?: string[];
+    autoSyncEnabled?: boolean;
+    syncStatuses?: string[];
+    healthStatuses?: string[];
+    offset?: number;
+    limit?: number;
+
+    fields?: string[];
+    exclude?: boolean;
 }
 
-function optionsToSearch(options?: QueryOptions) {
-    if (options) {
-        return {fields: (options.exclude ? '-' : '') + options.fields.join(','), selector: options.selector || '', appNamespace: options.appNamespace || ''};
+function optionsToSearch(options?: any): {[key: string]: string | string[]} {
+    if (!options) {
+        return {};
     }
-    return {};
+    const fields = options.fields || [];
+    const exclude = options.exclude || false;
+    const res: {[key: string]: string} = {
+        fields: (exclude ? '-' : '') + fields.join(',')
+    };
+    Object.keys(options)
+        .filter(key => key !== 'fields' && key !== 'exclude')
+        .forEach(key => {
+            const val = options[key];
+            if (val === undefined || val === null) {
+                return;
+            }
+            res[key] = val;
+        });
+    return res;
 }
 
 export class ApplicationsService {
     constructor() {}
 
-    public list(projects: string[], options?: QueryOptions): Promise<models.ApplicationList> {
+    public list(q: AppsQuery): Promise<models.ApplicationList> {
         return requests
             .get('/applications')
-            .query({projects, ...optionsToSearch(options)})
+            .query({...optionsToSearch(q)})
             .then(res => res.body as models.ApplicationList)
             .then(list => {
                 list.items = (list.items || []).map(app => this.parseAppFields(app));
@@ -180,25 +211,16 @@ export class ApplicationsService {
             .then(() => true);
     }
 
-    public watch(query?: {name?: string; resourceVersion?: string; projects?: string[]; appNamespace?: string}, options?: QueryOptions): Observable<models.ApplicationWatchEvent> {
+    public watch(q: AppsQuery): Observable<models.ApplicationWatchEvent> {
+        const searchKeys = optionsToSearch(q);
         const search = new URLSearchParams();
-        if (query) {
-            if (query.name) {
-                search.set('name', query.name);
+        for (const key of Object.keys(searchKeys)) {
+            const val = searchKeys[key];
+            if (Array.isArray(val)) {
+                val.forEach(v => search.append(key, v));
+            } else {
+                search.set(key, val);
             }
-            if (query.resourceVersion) {
-                search.set('resourceVersion', query.resourceVersion);
-            }
-            if (query.appNamespace) {
-                search.set('appNamespace', query.appNamespace);
-            }
-        }
-        if (options) {
-            const searchOptions = optionsToSearch(options);
-            search.set('fields', searchOptions.fields);
-            search.set('selector', searchOptions.selector);
-            search.set('appNamespace', searchOptions.appNamespace);
-            query?.projects?.forEach(project => search.append('projects', project));
         }
         const searchStr = search.toString();
         const url = `/stream/applications${(searchStr && '?' + searchStr) || ''}`;
