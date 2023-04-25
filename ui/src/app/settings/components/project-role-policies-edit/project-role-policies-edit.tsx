@@ -25,7 +25,7 @@ const actions = ['get', 'create', 'update', 'delete', 'sync', 'override'];
 export const ProjectRolePoliciesEdit = (props: ProjectRolePoliciesProps) => {
     const objectListKind = props.objectListKind || 'application';
     return (
-        <DataLoader load={() => services.applications.list([props.projName], objectListKind, {fields: ['items.metadata.name']}).then(list => list.items)}>
+        <DataLoader load={() => services.applications.list(objectListKind, {projects: [props.projName], fields: ['items.metadata.name']}).then(list => list.items)}>
             {applications => (
                 <React.Fragment>
                     <p>POLICY RULES</p>

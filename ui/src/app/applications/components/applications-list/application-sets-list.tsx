@@ -44,13 +44,13 @@ const APPSET_LIST_FIELDS = ['metadata.resourceVersion', ...APPSET_FIELDS.map(fie
 const APPSET_WATCH_FIELDS = ['result.type', ...APPSET_FIELDS.map(field => `result.applicationSet.${field}`)];
 
 function loadApplicationSets(projects: string[]): Observable<models.ApplicationSet[]> {
-    return from(services.applications.list(projects, 'applicationset', {fields: APPSET_LIST_FIELDS})).pipe(
+    return from(services.applications.list('applicationset', {projects, fields: APPSET_LIST_FIELDS})).pipe(
         mergeMap(applicationsList => {
             const appSets = applicationsList.items as models.ApplicationSet[];
             return merge(
                 from([appSets]),
                 services.applications
-                    .watch('applicationset', {projects, resourceVersion: applicationsList.metadata.resourceVersion}, {fields: APPSET_WATCH_FIELDS})
+                    .watch('applicationset', {resourceVersion: applicationsList.metadata.resourceVersion, projects, fields: APPSET_WATCH_FIELDS})
                     .pipe(repeat())
                     .pipe(retryWhen(errors => errors.pipe(delay(WATCH_RETRY_TIMEOUT))))
                     .pipe(bufferTime(EVENTS_BUFFER_TIMEOUT))

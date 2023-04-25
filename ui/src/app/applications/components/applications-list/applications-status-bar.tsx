@@ -13,40 +13,77 @@ interface Reading {
     color: string;
 }
 
-function getAppReadings(applications: models.Application[]): Reading[] {
-    return [
+export interface ApplicationsStatusBarProps {
+    stats: models.ApplicationListStats;
+}
+
+export const ApplicationsStatusBar = ({stats}: ApplicationsStatusBarProps) => {
+    const readings = [
         {
             name: 'Healthy',
-            value: applications.filter(app => app.status.health.status === 'Healthy').length,
+            value: stats.totalByHealthStatus.Healthy || 0,
             color: COLORS.health.healthy
         },
         {
             name: 'Progressing',
-            value: applications.filter(app => app.status.health.status === 'Progressing').length,
+            value: stats.totalByHealthStatus.Progressing || 0,
             color: COLORS.health.progressing
         },
         {
             name: 'Degraded',
-            value: applications.filter(app => app.status.health.status === 'Degraded').length,
+            value: stats.totalByHealthStatus.Degraded || 0,
             color: COLORS.health.degraded
         },
         {
             name: 'Suspended',
-            value: applications.filter(app => app.status.health.status === 'Suspended').length,
+            value: stats.totalByHealthStatus.Suspended || 0,
             color: COLORS.health.suspended
         },
         {
             name: 'Missing',
-            value: applications.filter(app => app.status.health.status === 'Missing').length,
+            value: stats.totalByHealthStatus.Missing || 0,
             color: COLORS.health.missing
         },
         {
             name: 'Unknown',
-            value: applications.filter(app => app.status.health.status === 'Unknown').length,
+            value: stats.totalByHealthStatus.Unknown || 0,
             color: COLORS.health.unknown
         }
     ];
-}
+
+    // will sort readings by value greatest to lowest, then by name
+    readings.sort((a, b) => (a.value < b.value ? 1 : a.value === b.value ? (a.name > b.name ? 1 : -1) : -1));
+
+    const totalItems = readings.reduce((total, i) => {
+        return total + i.value;
+    }, 0);
+
+    return (
+        <Consumer>
+            {() => (
+                <>
+                    {totalItems > 1 && (
+                        <div className='status-bar'>
+                            {readings &&
+                                readings.length > 1 &&
+                                readings.map((item, i) => {
+                                    if (item.value > 0) {
+                                        return (
+                                            <div className='status-bar__segment' style={{backgroundColor: item.color, width: (item.value / totalItems) * 100 + '%'}} key={i}>
+                                                <Tooltip content={`${item.value} ${item.name}`} inverted={true}>
+                                                    <div className='status-bar__segment__fill' />
+                                                </Tooltip>
+                                            </div>
+                                        );
+                                    }
+                                })}
+                        </div>
+                    )}
+                </>
+            )}
+        </Consumer>
+    );
+};
 
 function getAppSetReadings(appSets: models.ApplicationSet[]): Reading[] {
     return [
@@ -112,13 +149,6 @@ export interface AppsStatusBarProps {
     applications: models.Application[];
 }
 
-export const AppsStatusBar = ({applications}: AppsStatusBarProps) => {
-    if (!applications || applications.length === 0) {
-        return null;
-    }
-    return <StatusBarRenderer readings={getAppReadings(applications)} />;
-};
-
 export interface AppSetsStatusBarProps {
     appSets: models.ApplicationSet[];
 }
@@ -128,13 +158,4 @@ export const AppSetsStatusBar = ({appSets}: AppSetsStatusBarProps) => {
         return null;
     }
     return <StatusBarRenderer readings={getAppSetReadings(appSets)} />;
-};
-
-// Legacy wrapper for backwards compatibility (callers should migrate to AppsStatusBar or AppSetsStatusBar)
-export interface ApplicationsStatusBarProps {
-    applications: models.Application[];
-}
-
-export const ApplicationsStatusBar = ({applications}: ApplicationsStatusBarProps) => {
-    return <AppsStatusBar applications={applications} />;
 };

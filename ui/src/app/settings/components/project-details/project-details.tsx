@@ -365,8 +365,14 @@ export const ProjectDetails: React.FC<RouteComponentProps<{name: string}> & {obj
                             title: 'APPLICATIONS',
                             view: (
                                 <div>
-                                    <DataLoader load={() => services.applications.list([proj.metadata.name], objectListKind)}>
-                                        {apps => <Link to={'/applications?proj=' + proj.metadata.name}>{apps.items.length}</Link>}
+                                    <DataLoader
+                                        load={() =>
+                                            services.applications.list(objectListKind, {
+                                                projects: [proj.metadata.name],
+                                                limit: 1
+                                            })
+                                        }>
+                                        {apps => <Link to={'/applications?proj=' + proj.metadata.name}>{apps.stats.total}</Link>}
                                     </DataLoader>
                                 </div>
                             )

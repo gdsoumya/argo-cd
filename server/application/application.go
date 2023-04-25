@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -59,6 +60,7 @@ import (
 	"github.com/argoproj/argo-cd/v3/util/db"
 	"github.com/argoproj/argo-cd/v3/util/env"
 	"github.com/argoproj/argo-cd/v3/util/git"
+	"github.com/argoproj/argo-cd/v3/util/glob"
 	utilio "github.com/argoproj/argo-cd/v3/util/io"
 	"github.com/argoproj/argo-cd/v3/util/lua"
 	"github.com/argoproj/argo-cd/v3/util/manifeststream"
@@ -85,6 +87,7 @@ const (
 var (
 	ErrCacheMiss       = cacheutil.ErrCacheMiss
 	watchAPIBufferSize = env.ParseNumFromEnv(argocommon.EnvWatchAPIBufferSize, 1000, 0, math.MaxInt32)
+	maxListLimit       = env.ParseNumFromEnv(argocommon.EnvMaxResourceListLimit, 3000, 0, math.MaxInt32)
 )
 
 // Server provides an Application service
@@ -287,35 +290,20 @@ func (s *Server) getApplicationEnforceRBACClient(ctx context.Context, action, pr
 
 // List returns list of applications
 func (s *Server) List(ctx context.Context, q *application.ApplicationQuery) (*v1alpha1.ApplicationList, error) {
-	selector, err := labels.Parse(q.GetSelector())
-	if err != nil {
-		return nil, fmt.Errorf("error parsing the selector: %w", err)
-	}
 	var apps []*v1alpha1.Application
+	var err error
 	if q.GetAppNamespace() == "" {
-		apps, err = s.appLister.List(selector)
+		apps, err = s.appLister.List(labels.Everything())
 	} else {
-		apps, err = s.appLister.Applications(q.GetAppNamespace()).List(selector)
+		apps, err = s.appLister.Applications(q.GetAppNamespace()).List(labels.Everything())
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error listing apps with selectors: %w", err)
 	}
 
-	filteredApps := apps
-	// Filter applications by name
-	if q.Name != nil {
-		filteredApps = argo.FilterByNameP(filteredApps, *q.Name)
-	}
-
-	// Filter applications by projects
-	filteredApps = argo.FilterByProjectsP(filteredApps, getProjectsFromApplicationQuery(*q))
-
-	// Filter applications by source repo URL
-	filteredApps = argo.FilterByRepoP(filteredApps, q.GetRepo())
-
 	newItems := make([]v1alpha1.Application, 0)
-	for _, a := range filteredApps {
-		// Skip any application that is neither in the control plane's namespace
+	for _, a := range apps {
+		// Skip any application that is neither in the conrol plane's namespace
 		// nor in the list of enabled namespaces.
 		if !s.isNamespaceEnabled(a.Namespace) {
 			continue
@@ -331,18 +319,167 @@ func (s *Server) List(ctx context.Context, q *application.ApplicationQuery) (*v1
 		}
 	}
 
+	filter, err := s.getAppFilter(ctx, q)
+	if err != nil {
+		return nil, fmt.Errorf("error getting application filter: %w", err)
+	}
+	var filtered []v1alpha1.Application
+	for i := range newItems {
+		if filter(&newItems[i]) {
+			filtered = append(filtered, newItems[i])
+		}
+	}
+
 	// Sort found applications by name
-	sort.Slice(newItems, func(i, j int) bool {
-		return newItems[i].Name < newItems[j].Name
+	sort.Slice(filtered, func(i, j int) bool {
+		return filtered[i].Name < filtered[j].Name
 	})
+	stats := getAppListStats(filtered)
+	if q.Offset != nil && len(filtered) > int(*q.Offset) {
+		filtered = filtered[*q.Offset:]
+	}
+
+	limit := maxListLimit
+	if q.Limit != nil && *q.Limit > -1 {
+		limit = int(*q.Limit)
+	}
+
+	if len(filtered) > limit {
+		filtered = filtered[:*q.Limit]
+	}
 
 	appList := v1alpha1.ApplicationList{
 		ListMeta: metav1.ListMeta{
 			ResourceVersion: s.appInformer.LastSyncResourceVersion(),
 		},
-		Items: newItems,
+		Stats: stats,
+		Items: filtered,
 	}
 	return &appList, nil
+}
+
+func getAppTargetRevisions(a *v1alpha1.Application) []string {
+	var revisions []string
+	for _, src := range a.Spec.GetSources() {
+		rev := src.TargetRevision
+		if rev == "" {
+			rev = "HEAD"
+		}
+		revisions = append(revisions, rev)
+	}
+	return revisions
+}
+
+func getAppListStats(items []v1alpha1.Application) v1alpha1.ApplicationListStats {
+	stats := v1alpha1.ApplicationListStats{
+		Total:                  int64(len(items)),
+		TotalByHealthStatus:    map[health.HealthStatusCode]int64{},
+		TotalBySyncStatus:      map[v1alpha1.SyncStatusCode]int64{},
+		TotalByHydrationStatus: map[v1alpha1.HydrateOperationPhase]int64{},
+		TotalByOperationStatus: map[string]int64{},
+	}
+	revisions := map[string]bool{}
+	repos := map[string]bool{}
+	destinations := map[v1alpha1.ApplicationDestination]bool{}
+	namespaces := map[string]bool{}
+	allLabels := map[string]map[string]bool{}
+	allAnnotations := map[string]map[string]bool{}
+	for _, a := range items {
+		stats.TotalByHealthStatus[a.Status.Health.Status]++
+		stats.TotalBySyncStatus[a.Status.Sync.Status]++
+
+		var hydrateOperationPhase v1alpha1.HydrateOperationPhase
+		if a.Status.SourceHydrator.CurrentOperation != nil {
+			hydrateOperationPhase = a.Status.SourceHydrator.CurrentOperation.Phase
+		}
+		stats.TotalByHydrationStatus[hydrateOperationPhase]++
+		stats.TotalByOperationStatus[getOperationPhase(&a)]++
+
+		destinations[v1alpha1.ApplicationDestination{Name: a.Spec.Destination.Name, Server: a.Spec.Destination.Server}] = true
+		for _, rev := range getAppTargetRevisions(&a) {
+			revisions[rev] = true
+		}
+		namespaces[a.Spec.Destination.Namespace] = true
+		if a.Spec.SyncPolicy != nil && a.Spec.SyncPolicy.Automated != nil {
+			stats.AutoSyncEnabledCount++
+		}
+		for k, v := range a.GetLabels() {
+			vals, ok := allLabels[k]
+			if !ok {
+				vals = map[string]bool{}
+				allLabels[k] = vals
+			}
+			vals[v] = true
+		}
+		for k, v := range a.GetAnnotations() {
+			if k == "kubectl.kubernetes.io/last-applied-configuration" {
+				continue
+			}
+			vals, ok := allAnnotations[k]
+			if !ok {
+				vals = map[string]bool{}
+				allAnnotations[k] = vals
+			}
+			vals[v] = true
+		}
+		for _, src := range a.Spec.GetSources() {
+			repo := src.RepoURL
+			if src.Chart == "" {
+				repo = git.NormalizeGitURL(repo)
+			}
+			repos[repo] = true
+		}
+	}
+	for k := range destinations {
+		stats.Destinations = append(stats.Destinations, k)
+	}
+	for k := range namespaces {
+		stats.Namespaces = append(stats.Namespaces, k)
+	}
+	for k, v := range allLabels {
+		var values []string
+		for val := range v {
+			values = append(values, val)
+		}
+		stats.Labels = append(stats.Labels, v1alpha1.ApplicationLabelStats{Key: k, Values: values})
+	}
+	for k, v := range allAnnotations {
+		var values []string
+		for val := range v {
+			values = append(values, val)
+		}
+		stats.Annotations = append(stats.Annotations, v1alpha1.ApplicationLabelStats{Key: k, Values: values})
+	}
+	for k := range revisions {
+		stats.Revisions = append(stats.Revisions, k)
+	}
+	for r := range repos {
+		stats.Repos = append(stats.Repos, r)
+	}
+	return stats
+}
+
+// must match values defined in frontend based filtering
+// https://github.com/argoproj/argo-cd/blob/6f21978637b62bd018f68599734179c48c0124ed/ui/src/app/applications/components/applications-list/applications-filter.tsx#L303
+func getOperationPhase(a *v1alpha1.Application) string {
+	operationStatus := "Unknown"
+	if a.DeletionTimestamp != nil {
+		operationStatus = "Syncing"
+	} else if a.Status.OperationState != nil {
+		switch a.Status.OperationState.Phase {
+		case common.OperationRunning:
+			return "Syncing"
+		case common.OperationError:
+			return "Sync error"
+		case common.OperationFailed:
+			return "Sync failed"
+		case common.OperationSucceeded:
+			return "Sync OK"
+		case common.OperationTerminating:
+			return "Terminated"
+		}
+	}
+	return operationStatus
 }
 
 // Create creates an application
@@ -1250,35 +1387,16 @@ func (s *Server) isApplicationPermitted(selector labels.Selector, minVersion int
 }
 
 func (s *Server) Watch(q *application.ApplicationQuery, ws application.ApplicationService_WatchServer) error {
-	appName := q.GetName()
-	appNs := s.appNamespaceOrDefault(q.GetAppNamespace())
 	logCtx := log.NewEntry(log.New())
 	if q.Name != nil {
 		logCtx = logCtx.WithField("application", *q.Name)
 	}
-	projects := map[string]bool{}
-	for _, project := range getProjectsFromApplicationQuery(*q) {
-		projects[project] = true
-	}
-	claims := ws.Context().Value("claims")
-	selector, err := labels.Parse(q.GetSelector())
+	filter, err := s.getAppFilter(ws.Context(), q)
 	if err != nil {
-		return fmt.Errorf("error parsing labels with selectors: %w", err)
-	}
-	minVersion := 0
-	if q.GetResourceVersion() != "" {
-		if minVersion, err = strconv.Atoi(q.GetResourceVersion()); err != nil {
-			minVersion = 0
-		}
+		return fmt.Errorf("error getting application filter: %w", err)
 	}
 
-	// sendIfPermitted is a helper to send the application to the client's streaming channel if the
-	// caller has RBAC privileges permissions to view it
-	sendIfPermitted := func(a v1alpha1.Application, eventType watch.EventType) {
-		permitted := s.isApplicationPermitted(selector, minVersion, claims, appName, appNs, projects, a)
-		if !permitted {
-			return
-		}
+	sendEvent := func(a v1alpha1.Application, eventType watch.EventType) {
 		s.inferResourcesStatusHealth(&a)
 		err := ws.Send(&v1alpha1.ApplicationWatchEvent{
 			Type:        eventType,
@@ -1290,13 +1408,14 @@ func (s *Server) Watch(q *application.ApplicationQuery, ws application.Applicati
 		}
 	}
 
+	watchedNames := map[string]bool{}
 	events := make(chan *v1alpha1.ApplicationWatchEvent, watchAPIBufferSize)
 	// Mimic watch API behavior: send ADDED events if no resource version provided
 	// If watch API is executed for one application when emit event even if resource version is provided
 	// This is required since single app watch API is used for during operations like app syncing and it is
 	// critical to never miss events.
-	if q.GetResourceVersion() == "" || q.GetName() != "" {
-		apps, err := s.appLister.List(selector)
+	if q.GetName() == "" {
+		apps, err := s.appLister.List(labels.Everything())
 		if err != nil {
 			return fmt.Errorf("error listing apps with selector: %w", err)
 		}
@@ -1304,7 +1423,10 @@ func (s *Server) Watch(q *application.ApplicationQuery, ws application.Applicati
 			return apps[i].QualifiedName() < apps[j].QualifiedName()
 		})
 		for i := range apps {
-			sendIfPermitted(*apps[i], watch.Added)
+			if filter(apps[i]) {
+				watchedNames[apps[i].Name] = true
+				sendEvent(*apps[i], watch.Added)
+			}
 		}
 	}
 	unsubscribe := s.appBroadcaster.Subscribe(events)
@@ -1312,7 +1434,15 @@ func (s *Server) Watch(q *application.ApplicationQuery, ws application.Applicati
 	for {
 		select {
 		case event := <-events:
-			sendIfPermitted(event.Application, event.Type)
+			if filter(&event.Application) {
+				watchedNames[event.Application.Name] = true
+				sendEvent(event.Application, event.Type)
+			} else if watchedNames[event.Application.Name] {
+				// If an app was previously sent, but no longer matches the filter, send a DELETED event
+				sendEvent(event.Application, watch.Deleted)
+				delete(watchedNames, event.Application.Name)
+			}
+
 		case <-ws.Context().Done():
 			return nil
 		}
@@ -3194,5 +3324,116 @@ func (s *Server) ServerSideDiff(ctx context.Context, q *application.ApplicationS
 	return &application.ApplicationServerSideDiffResponse{
 		Items:    responseDiffs,
 		Modified: &modified,
+	}, nil
+}
+
+func (s *Server) getAppFilter(ctx context.Context, q *application.ApplicationQuery) (func(app *v1alpha1.Application) bool, error) {
+	selector, err := labels.Parse(q.GetSelector())
+	if err != nil {
+		return nil, fmt.Errorf("error parsing the selector: %w", err)
+	}
+	annotationsSelector, err := labels.Parse(q.GetAnnotationsSelector())
+	if err != nil {
+		return nil, fmt.Errorf("error parsing the selector: %w", err)
+	}
+	minVersion := 0
+	if q.GetResourceVersion() != "" {
+		if minVersion, err = strconv.Atoi(q.GetResourceVersion()); err != nil {
+			minVersion = 0
+		}
+	}
+	return func(app *v1alpha1.Application) bool {
+		if q.GetName() != "" && app.Name != q.GetName() {
+			return false
+		}
+		if q.GetSearch() != "" && !strings.Contains(app.Name, q.GetSearch()) {
+			return false
+		}
+		// Skip any application that is neither in the control plane's namespace
+		// nor in the list of enabled namespaces.
+		if app.Namespace != s.ns && !glob.MatchStringInList(s.enabledNamespaces, app.Namespace, glob.GLOB) {
+			return false
+		}
+		if !s.enf.Enforce(ctx.Value("claims"), rbac.ResourceApplications, rbac.ActionGet, app.RBACName(s.ns)) {
+			// do not emit apps user does not have accessing
+			return false
+		}
+
+		if appVersion, err := strconv.Atoi(app.ResourceVersion); err == nil && appVersion < minVersion {
+			return false
+		}
+
+		if q.GetMinName() != "" && app.Name < q.GetMinName() {
+			return false
+		}
+
+		if q.GetMaxName() != "" && app.Name > q.GetMaxName() {
+			return false
+		}
+
+		if !selector.Matches(labels.Set(app.GetLabels())) {
+			return false
+		}
+
+		if !annotationsSelector.Matches(labels.Set(app.GetAnnotations())) {
+			return false
+		}
+
+		repos := map[string]bool{}
+		for _, repo := range q.GetRepos() {
+			repos[git.NormalizeGitURL(repo)] = true
+		}
+		if q.GetRepo() != "" {
+			repos[git.NormalizeGitURL(q.GetRepo())] = true
+		}
+
+		if len(repos) > 0 {
+			found := false
+			for _, src := range app.Spec.GetSources() {
+				if repos[git.NormalizeGitURL(src.RepoURL)] {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return false
+			}
+		}
+
+		if len(q.HealthStatuses) > 0 && !sets.NewString(q.HealthStatuses...).Has(string(app.Status.Health.Status)) {
+			return false
+		}
+
+		if len(q.SyncStatuses) > 0 && !sets.NewString(q.SyncStatuses...).Has(string(app.Status.Sync.Status)) {
+			return false
+		}
+
+		if projects := getProjectsFromApplicationQuery(*q); len(projects) > 0 && !sets.NewString(projects...).Has(app.Spec.GetProject()) {
+			return false
+		}
+
+		if len(q.GetClusters()) > 0 && !sets.NewString(q.GetClusters()...).Has(app.Spec.Destination.Server) {
+			return false
+		}
+
+		if len(q.GetNamespaces()) > 0 && !sets.NewString(q.GetNamespaces()...).Has(app.Spec.Destination.Namespace) {
+			return false
+		}
+		if len(q.GetOperationPhases()) > 0 && !sets.NewString(q.GetOperationPhases()...).Has(getOperationPhase(app)) {
+			return false
+		}
+
+		if autoSyncEnabled := q.AutoSyncEnabled; autoSyncEnabled != nil && (*autoSyncEnabled) != (app.Spec.SyncPolicy != nil && app.Spec.SyncPolicy.Automated != nil) {
+			return false
+		}
+		if len(q.GetRevisions()) > 0 {
+			appRevisions := getAppTargetRevisions(app)
+			for _, rev := range q.GetRevisions() {
+				if !slices.Contains(appRevisions, rev) {
+					return false
+				}
+			}
+		}
+		return true
 	}, nil
 }

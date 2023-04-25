@@ -15,9 +15,29 @@ interface ItemsList<T> {
     metadata: models.ListMeta;
 }
 
-export interface AbstractApplicationList extends ItemsList<AbstractApplication> {}
-export interface ApplicationList extends ItemsList<Application> {}
-export interface ApplicationSetList extends ItemsList<ApplicationSet> {}
+export interface AbstractApplicationList extends ItemsList<AbstractApplication> {
+    stats: ApplicationListStats;
+}
+export interface ApplicationList extends ItemsList<Application> {
+    stats: ApplicationListStats;
+}
+export interface ApplicationSetList extends ItemsList<ApplicationSet> {
+    stats: ApplicationListStats;
+}
+export interface ApplicationListStats {
+    total: number;
+    totalBySyncStatus: {[key: string]: number};
+    totalByHealthStatus: {[key: string]: number};
+    totalByHydrationStatus: {[key: string]: number};
+    totalByOperationStatus: {[key: string]: number};
+    autoSyncEnabledCount: number;
+    destinations: ApplicationDestination[];
+    namespaces: string[];
+    labels: {key: string; values: string[]}[];
+    annotations: {key: string; values: string[]}[];
+    revisions: string[];
+    repos: string[];
+}
 
 export interface SyncOperationResource {
     group: string;

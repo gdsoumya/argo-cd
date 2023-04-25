@@ -8,44 +8,70 @@ import requests from './requests';
 import {getRootPathByApp, isApp} from '../../applications/components/utils';
 import {namespaceQuery, namespaceQueryKey} from './applications-service.namespace';
 
-interface QueryOptions {
-    fields: string[];
-    exclude?: boolean;
+export interface AppsQuery {
+    name?: string;
+    refresh?: string;
+    search?: string;
+    projects?: string[];
+    resourceVersion?: string;
     selector?: string;
+    annotationsSelector?: string;
+    repo?: string;
     appNamespace?: string;
+    minName?: string;
+    maxName?: string;
+    repos?: string[];
+    clusters?: string[];
+    namespaces?: string[];
+    autoSyncEnabled?: boolean;
+    syncStatuses?: string[];
+    healthStatuses?: string[];
+    operationPhases?: string[];
+    offset?: number;
+    limit?: number;
+    revisions?: string[];
+
+    fields?: string[];
+    exclude?: boolean;
 }
 
-function optionsToSearch(options?: QueryOptions): {fields?: string; selector: string; appNamespace: string} {
-    if (options) {
-        const result: {fields?: string; selector: string; appNamespace: string} = {
-            selector: options.selector || '',
-            appNamespace: options.appNamespace || ''
-        };
-        if (options.fields) {
-            result.fields = (options.exclude ? '-' : '') + options.fields.join(',');
-        }
-        return result;
+function optionsToSearch(options?: any): {[key: string]: string | string[]} {
+    if (!options) {
+        return {};
     }
-    return {selector: '', appNamespace: ''};
+    const fields = options.fields || [];
+    const exclude = options.exclude || false;
+    const res: {[key: string]: string} = {
+        fields: (exclude ? '-' : '') + fields.join(',')
+    };
+    Object.keys(options)
+        .filter(key => key !== 'fields' && key !== 'exclude')
+        .forEach(key => {
+            const val = options[key];
+            if (val === undefined || val === null) {
+                return;
+            }
+            res[key] = val;
+        });
+    return res;
 }
 
-function getQuery(projects: string[], isListOfApplications: boolean, options?: QueryOptions): any {
-    if (isListOfApplications) {
-        return {projects, ...optionsToSearch(options)};
-    } else {
-        return {...optionsToSearch(options)};
+function getQuery(isListOfApplications: boolean, options?: AppsQuery): any {
+    if (!isListOfApplications) {
+        delete options?.projects;
     }
+    return {...optionsToSearch(options)};
 }
 
 export class ApplicationsService {
     constructor() {}
 
-    public list(projects: string[], objectListKind: string, options?: QueryOptions): Promise<models.AbstractApplicationList> {
+    public list(objectListKind: string, q: AppsQuery): Promise<models.AbstractApplicationList> {
         const isApplication = objectListKind === 'application';
         const endpoint = isApplication ? '/applications' : '/applicationsets';
         return requests
             .get(endpoint)
-            .query(getQuery(projects, isApplication, options))
+            .query(getQuery(isApplication, q))
             .then(res => {
                 if (isApplication) {
                     return res.body as models.ApplicationList;
@@ -229,34 +255,24 @@ export class ApplicationsService {
             .then(() => true);
     }
 
-    public watch(
-        objectListKind: string,
-        query?: {name?: string; resourceVersion?: string; projects?: string[]; appNamespace?: string},
-        options?: QueryOptions
-    ): Observable<models.ApplicationWatchEvent> {
+    public watch(objectListKind: string, q: AppsQuery): Observable<models.ApplicationWatchEvent> {
+        const searchKeys = optionsToSearch(q);
         const search = new URLSearchParams();
         const isApplication = objectListKind === 'application';
         const endpoint = isApplication ? '/applications' : '/applicationsets';
-        if (query) {
-            if (query.name) {
-                search.set('name', query.name);
-            }
-            if (query.resourceVersion) {
-                search.set('resourceVersion', query.resourceVersion);
-            }
-            if (query.appNamespace) {
-                search.set(namespaceQueryKey(objectListKind, true), query.appNamespace);
-            }
+        if (!isApplication) {
+            delete searchKeys.projects;
         }
-        if (options) {
-            const searchOptions = optionsToSearch(options);
-            search.set('fields', searchOptions.fields);
-            search.set('selector', searchOptions.selector);
-            if (searchOptions.appNamespace) {
-                search.set(namespaceQueryKey(objectListKind, true), searchOptions.appNamespace);
+        for (const key of Object.keys(searchKeys)) {
+            const val = searchKeys[key];
+            let tempKey = key;
+            if (key === 'appNamespace') {
+                tempKey = namespaceQueryKey(objectListKind, true);
             }
-            if (isApplication) {
-                query?.projects?.forEach(project => search.append('projects', project));
+            if (Array.isArray(val)) {
+                val.forEach(v => search.append(tempKey, v));
+            } else {
+                search.set(tempKey, val);
             }
         }
         const searchStr = search.toString();

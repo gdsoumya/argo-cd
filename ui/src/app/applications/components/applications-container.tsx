@@ -14,7 +14,9 @@ export const ApplicationsContainer = (props: RouteComponentProps<any>) => {
             <Route
                 exact={true}
                 path={`${props.match.path}`}
-                render={() => (objectListKind === 'application' ? <ApplicationsList {...(props as any)} /> : <ApplicationSetsList {...(props as any)} />)}
+                render={() =>
+                    objectListKind === 'application' ? <ApplicationsList objectListKind={objectListKind} {...(props as any)} /> : <ApplicationSetsList {...(props as any)} />
+                }
             />
             <Route exact={true} path={`${props.match.path}/:name`} render={routeProps => <ApplicationDetails objectListKind={objectListKind} {...(routeProps as any)} />} />
             <Route
