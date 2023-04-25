@@ -198,6 +198,126 @@ func (s *Service) ListRefs(ctx context.Context, q *apiclient.ListRefsRequest) (*
 	return &res, nil
 }
 
+// GetDirectories returns the file contents at the specified repo and path
+func (s *Service) GetDirectories(ctx context.Context, q *apiclient.GetDirectoriesRequest) (*apiclient.GetDirectoriesResponse, error) {
+	_, commitSHA, err := s.newClientResolveRevision(q.Repo, q.Revision)
+	if err != nil {
+		return nil, err
+	}
+
+	var res apiclient.GetDirectoriesResponse
+	err = s.cache.GetDirectories(commitSHA, q, &res)
+	if err == nil {
+		log.Infof("get directories cache hit %s/%s", q.Repo.Repo, commitSHA)
+		return &res, nil
+	}
+
+	filteredPaths := []string{}
+
+	operation := func(repoRoot, commitSHA, revision string, ctxSrc operationContextSrc) error {
+		if err := filepath.Walk(repoRoot, func(path string, info os.FileInfo, fnErr error) error {
+			if fnErr != nil {
+				return fmt.Errorf("error walking the file tree: %w", fnErr)
+			}
+			if !info.IsDir() { // Skip files: directories only
+				return nil
+			}
+
+			fname := info.Name()
+			if strings.HasPrefix(fname, ".") { // Skip all folders starts with "."
+				return filepath.SkipDir
+			}
+
+			relativePath, err := filepath.Rel(repoRoot, path)
+			if err != nil {
+				return fmt.Errorf("error constructing relative repo path: %w", err)
+			}
+
+			if relativePath == "." { // Exclude '.' from results
+				return nil
+			}
+
+			filteredPaths = append(filteredPaths, relativePath)
+
+			return nil
+		}); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	settings := operationSettings{
+		allowConcurrent: true,
+	}
+	// already checked cache
+	cacheFn := func(cacheKey string, refSourceCommitSHAs cache.ResolvedRevisions, firstInvocation bool) (bool, error) {
+		return false, nil
+	}
+	err = s.runRepoOperation(ctx, q.Revision, q.Repo, &v1alpha1.ApplicationSource{}, false, cacheFn, operation, settings, false, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	res = apiclient.GetDirectoriesResponse{Items: filteredPaths}
+	err = s.cache.SetDirectories(commitSHA, q, &res)
+	if err != nil {
+		log.Warnf("get directories cache set error %s/%s: %v", q.Repo.Repo, commitSHA, err)
+	}
+	return &res, nil
+}
+
+// GetFiles returns all the file contents at the specified repo and path
+func (s *Service) GetFiles(ctx context.Context, q *apiclient.GetFilesRequest) (*apiclient.GetFilesResponse, error) {
+	gitRepoClient, commitSHA, err := s.newClientResolveRevision(q.Repo, q.Revision)
+	if err != nil {
+		return nil, err
+	}
+
+	var res apiclient.GetFilesResponse
+	err = s.cache.GetFiles(commitSHA, q, &res)
+	if err == nil {
+		log.Infof("get files cache hit %s/%s", q.Repo.Repo, commitSHA)
+		return &res, nil
+	}
+
+	fileList := map[string][]byte{}
+
+	operation := func(repoRoot, commitSHA, revision string, ctxSrc operationContextSrc) error {
+		paths, err := gitRepoClient.LsFiles(q.GetPattern())
+		if err != nil {
+			return fmt.Errorf("error during listing files of local repo: %w", err)
+		}
+
+		for _, filePath := range paths {
+			fileData, err := os.ReadFile(filepath.Join(repoRoot, filePath))
+			if err != nil {
+				return err
+			}
+			fileList[filePath] = fileData
+		}
+		return nil
+	}
+
+	settings := operationSettings{
+		allowConcurrent: true,
+	}
+	// already checked cache
+	cacheFn := func(cacheKey string, refSourceCommitSHAs cache.ResolvedRevisions, firstInvocation bool) (bool, error) {
+		return false, nil
+	}
+	err = s.runRepoOperation(ctx, q.Revision, q.Repo, &v1alpha1.ApplicationSource{}, false, cacheFn, operation, settings, false, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	res = apiclient.GetFilesResponse{Items: fileList}
+	err = s.cache.SetFiles(commitSHA, q, &res)
+	if err != nil {
+		log.Warnf("get files cache set error %s/%s: %v", q.Repo.Repo, commitSHA, err)
+	}
+	return &res, nil
+}
+
 // ListApps lists the contents of a GitHub repo
 func (s *Service) ListApps(ctx context.Context, q *apiclient.ListAppsRequest) (*apiclient.AppList, error) {
 	gitClient, commitSHA, err := s.newClientResolveRevision(q.Repo, q.Revision)

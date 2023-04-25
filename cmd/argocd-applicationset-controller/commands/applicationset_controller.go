@@ -2,10 +2,13 @@ package command
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 	"time"
 
+	"github.com/argoproj/argo-cd/v2/reposerver/apiclient"
+	"github.com/argoproj/argo-cd/v2/util/tls"
 	"github.com/argoproj/pkg/stats"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -38,11 +41,6 @@ import (
 	argosettings "github.com/argoproj/argo-cd/v2/util/settings"
 )
 
-// TODO: load this using Cobra.
-func getSubmoduleEnabled() bool {
-	return env.ParseBoolFromEnv(common.EnvGitSubmoduleEnabled, true)
-}
-
 func NewCommand() *cobra.Command {
 	var (
 		clientConfig           clientcmd.ClientConfig
@@ -51,11 +49,16 @@ func NewCommand() *cobra.Command {
 		webhookAddr            string
 		enableLeaderElection   bool
 		namespace              string
-		argocdRepoServer       string
 		policy                 string
 		debugLog               bool
 		dryRun                 bool
 		enableProgressiveSyncs bool
+
+		repoServerPlaintext          bool
+		repoServerStrictTLS          bool
+		repoServerAddress            string
+		repoServerTimeoutSeconds     int
+		maxConcurrentReconciliations int
 	)
 	scheme := runtime.NewScheme()
 	_ = clientgoscheme.AddToScheme(scheme)
@@ -125,10 +128,31 @@ func NewCommand() *cobra.Command {
 			scmAuth := generators.SCMAuthProviders{
 				GitHubApps: github_app.NewAuthCredentials(argoCDDB.(db.RepoCredsDB)),
 			}
+
+			tlsConfig := apiclient.TLSConfiguration{
+				DisableTLS:       repoServerPlaintext,
+				StrictValidation: repoServerStrictTLS,
+			}
+
+			// Load CA information to use for validating connections to the
+			// repository server, if strict TLS validation was requested.
+			if !repoServerPlaintext && repoServerStrictTLS {
+				pool, err := tls.LoadX509CertPool(
+					fmt.Sprintf("%s/server/tls/tls.crt", env.StringFromEnv(common.EnvAppConfigPath, common.DefaultAppConfigPath)),
+					fmt.Sprintf("%s/server/tls/ca.crt", env.StringFromEnv(common.EnvAppConfigPath, common.DefaultAppConfigPath)),
+				)
+				if err != nil {
+					log.Fatalf("%v", err)
+				}
+				tlsConfig.Certificates = pool
+			}
+
+			repoclientset := apiclient.NewRepoServerClientset(repoServerAddress, repoServerTimeoutSeconds, tlsConfig)
+
 			terminalGenerators := map[string]generators.Generator{
 				"List":                    generators.NewListGenerator(),
 				"Clusters":                generators.NewClusterGenerator(mgr.GetClient(), ctx, k8sClient, namespace),
-				"Git":                     generators.NewGitGenerator(services.NewArgoCDService(argoCDDB, askPassServer, getSubmoduleEnabled())),
+				"Git":                     generators.NewGitGenerator(services.NewArgoCDService(argoCDDB, askPassServer, repoclientset)),
 				"SCMProvider":             generators.NewSCMProviderGenerator(mgr.GetClient(), scmAuth),
 				"ClusterDecisionResource": generators.NewDuckTypeGenerator(ctx, dynamicClient, k8sClient, namespace),
 				"PullRequest":             generators.NewPullRequestGenerator(mgr.GetClient(), scmAuth),
@@ -177,7 +201,7 @@ func NewCommand() *cobra.Command {
 				KubeClientset:          k8sClient,
 				ArgoDB:                 argoCDDB,
 				EnableProgressiveSyncs: enableProgressiveSyncs,
-			}).SetupWithManager(mgr, enableProgressiveSyncs); err != nil {
+			}).SetupWithManager(mgr, enableProgressiveSyncs, maxConcurrentReconciliations); err != nil {
 				log.Error(err, "unable to create controller", "controller", "ApplicationSet")
 				os.Exit(1)
 			}
@@ -199,13 +223,17 @@ func NewCommand() *cobra.Command {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	command.Flags().StringVar(&namespace, "namespace", env.StringFromEnv("ARGOCD_APPLICATIONSET_CONTROLLER_NAMESPACE", ""), "Argo CD repo namespace (default: argocd)")
-	command.Flags().StringVar(&argocdRepoServer, "argocd-repo-server", env.StringFromEnv("ARGOCD_APPLICATIONSET_CONTROLLER_REPO_SERVER", common.DefaultRepoServerAddr), "Argo CD repo server address")
 	command.Flags().StringVar(&policy, "policy", env.StringFromEnv("ARGOCD_APPLICATIONSET_CONTROLLER_POLICY", "sync"), "Modify how application is synced between the generator and the cluster. Default is 'sync' (create & update & delete), options: 'create-only', 'create-update' (no deletion), 'create-delete' (no update)")
 	command.Flags().BoolVar(&debugLog, "debug", env.ParseBoolFromEnv("ARGOCD_APPLICATIONSET_CONTROLLER_DEBUG", false), "Print debug logs. Takes precedence over loglevel")
 	command.Flags().StringVar(&cmdutil.LogFormat, "logformat", env.StringFromEnv("ARGOCD_APPLICATIONSET_CONTROLLER_LOGFORMAT", "text"), "Set the logging format. One of: text|json")
 	command.Flags().StringVar(&cmdutil.LogLevel, "loglevel", env.StringFromEnv("ARGOCD_APPLICATIONSET_CONTROLLER_LOGLEVEL", "info"), "Set the logging level. One of: debug|info|warn|error")
 	command.Flags().BoolVar(&dryRun, "dry-run", env.ParseBoolFromEnv("ARGOCD_APPLICATIONSET_CONTROLLER_DRY_RUN", false), "Enable dry run mode")
 	command.Flags().BoolVar(&enableProgressiveSyncs, "enable-progressive-syncs", env.ParseBoolFromEnv("ARGOCD_APPLICATIONSET_CONTROLLER_ENABLE_PROGRESSIVE_SYNCS", false), "Enable use of the experimental progressive syncs feature.")
+	command.Flags().BoolVar(&repoServerPlaintext, "repo-server-plaintext", env.ParseBoolFromEnv("ARGOCD_APPLICATIONSET_CONTROLLER_REPO_SERVER_PLAINTEXT", false), "Use a plaintext client (non-TLS) to connect to repository server")
+	command.Flags().BoolVar(&repoServerStrictTLS, "repo-server-strict-tls", env.ParseBoolFromEnv("ARGOCD_APPLICATIONSET_CONTROLLER_REPO_SERVER_STRICT_TLS", false), "Perform strict validation of TLS certificates when connecting to repo server")
+	command.Flags().IntVar(&repoServerTimeoutSeconds, "repo-server-timeout-seconds", env.ParseNumFromEnv("ARGOCD_APPLICATIONSET_CONTROLLER_REPO_SERVER_TIMEOUT_SECONDS", 60, 0, math.MaxInt64), "Repo server RPC call timeout seconds.")
+	command.Flags().StringVar(&repoServerAddress, "repo-server", env.StringFromEnv("ARGOCD_APPLICATIONSET_CONTROLLER_REPO_SERVER", common.DefaultRepoServerAddr), "Repo server address")
+	command.Flags().IntVar(&maxConcurrentReconciliations, "concurrent-reconciliations", env.ParseNumFromEnv("ARGOCD_APPLICATIONSET_CONTROLLER_CONCURRENT_RECONCILIATIONS", 60, 0, 100), "Max concurrent reconciliations limit for the controller")
 	return &command
 }
 

@@ -3,13 +3,12 @@ package services
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
+	repoapiclient "github.com/argoproj/argo-cd/v2/reposerver/apiclient"
 	"github.com/argoproj/argo-cd/v2/util/db"
 	"github.com/argoproj/argo-cd/v2/util/git"
+	ioutil "github.com/argoproj/argo-cd/v2/util/io"
 )
 
 // RepositoryDB Is a lean facade for ArgoDB,
@@ -19,9 +18,9 @@ type RepositoryDB interface {
 }
 
 type argoCDService struct {
-	repositoriesDB   RepositoryDB
-	storecreds       git.CredsStore
-	submoduleEnabled bool
+	repositoriesDB RepositoryDB
+	storecreds     git.CredsStore
+	repoClientSet  repoapiclient.Clientset
 }
 
 type Repos interface {
@@ -33,121 +32,58 @@ type Repos interface {
 	GetDirectories(ctx context.Context, repoURL string, revision string) ([]string, error)
 }
 
-func NewArgoCDService(db db.ArgoDB, gitCredStore git.CredsStore, submoduleEnabled bool) Repos {
+func NewArgoCDService(db db.ArgoDB, gitCredStore git.CredsStore, repoclientset repoapiclient.Clientset) Repos {
 
 	return &argoCDService{
-		repositoriesDB:   db.(RepositoryDB),
-		storecreds:       gitCredStore,
-		submoduleEnabled: submoduleEnabled,
+		repositoriesDB: db.(RepositoryDB),
+		storecreds:     gitCredStore,
+		repoClientSet:  repoclientset,
 	}
 }
 
 func (a *argoCDService) GetFiles(ctx context.Context, repoURL string, revision string, pattern string) (map[string][]byte, error) {
 	repo, err := a.repositoriesDB.GetRepository(ctx, repoURL)
 	if err != nil {
-		return nil, fmt.Errorf("Error in GetRepository: %w", err)
+		return nil, fmt.Errorf("error in GetRepository: %w", err)
 	}
 
-	gitRepoClient, err := git.NewClient(repo.Repo, repo.GetGitCreds(a.storecreds), repo.IsInsecure(), repo.IsLFSEnabled(), repo.Proxy)
+	closer, repoClient, err := a.repoClientSet.NewRepoServerClient()
+	if err != nil {
+		return nil, err
+	}
+	defer ioutil.Close(closer)
 
+	resp, err := repoClient.GetFiles(ctx, &repoapiclient.GetFilesRequest{
+		Repo:     repo,
+		Revision: revision,
+		Pattern:  pattern,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	err = checkoutRepo(gitRepoClient, revision, a.submoduleEnabled)
-	if err != nil {
-		return nil, err
-	}
-
-	paths, err := gitRepoClient.LsFiles(pattern)
-	if err != nil {
-		return nil, fmt.Errorf("Error during listing files of local repo: %w", err)
-	}
-
-	res := map[string][]byte{}
-	for _, filePath := range paths {
-		bytes, err := os.ReadFile(filepath.Join(gitRepoClient.Root(), filePath))
-		if err != nil {
-			return nil, err
-		}
-		res[filePath] = bytes
-	}
-
-	return res, nil
+	return resp.Items, nil
 }
 
 func (a *argoCDService) GetDirectories(ctx context.Context, repoURL string, revision string) ([]string, error) {
-
 	repo, err := a.repositoriesDB.GetRepository(ctx, repoURL)
 	if err != nil {
-		return nil, fmt.Errorf("Error in GetRepository: %w", err)
+		return nil, fmt.Errorf("error in GetRepository: %w", err)
 	}
 
-	gitRepoClient, err := git.NewClient(repo.Repo, repo.GetGitCreds(a.storecreds), repo.IsInsecure(), repo.IsLFSEnabled(), repo.Proxy)
+	closer, repoClient, err := a.repoClientSet.NewRepoServerClient()
 	if err != nil {
-		return nil, fmt.Errorf("error creating a new git client: %w", err)
+		return nil, err
 	}
+	defer ioutil.Close(closer)
 
-	err = checkoutRepo(gitRepoClient, revision, a.submoduleEnabled)
+	resp, err := repoClient.GetDirectories(ctx, &repoapiclient.GetDirectoriesRequest{
+		Repo:     repo,
+		Revision: revision,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("error while checking out repo: %w", err)
-	}
-
-	filteredPaths := []string{}
-
-	repoRoot := gitRepoClient.Root()
-
-	if err := filepath.Walk(repoRoot, func(path string, info os.FileInfo, fnErr error) error {
-		if fnErr != nil {
-			return fmt.Errorf("error walking the file tree: %w", fnErr)
-		}
-		if !info.IsDir() { // Skip files: directories only
-			return nil
-		}
-
-		fname := info.Name()
-		if strings.HasPrefix(fname, ".") { // Skip all folders starts with "."
-			return filepath.SkipDir
-		}
-
-		relativePath, err := filepath.Rel(repoRoot, path)
-		if err != nil {
-			return fmt.Errorf("error constructing relative repo path: %w", err)
-		}
-
-		if relativePath == "." { // Exclude '.' from results
-			return nil
-		}
-
-		filteredPaths = append(filteredPaths, relativePath)
-
-		return nil
-	}); err != nil {
 		return nil, err
 	}
 
-	return filteredPaths, nil
-
-}
-
-func checkoutRepo(gitRepoClient git.Client, revision string, submoduleEnabled bool) error {
-	err := gitRepoClient.Init()
-	if err != nil {
-		return fmt.Errorf("Error during initializing repo: %w", err)
-	}
-
-	err = gitRepoClient.Fetch(revision)
-	if err != nil {
-		return fmt.Errorf("Error during fetching repo: %w", err)
-	}
-
-	commitSHA, err := gitRepoClient.LsRemote(revision)
-	if err != nil {
-		return fmt.Errorf("Error during fetching commitSHA: %w", err)
-	}
-	err = gitRepoClient.Checkout(commitSHA, submoduleEnabled)
-	if err != nil {
-		return fmt.Errorf("Error during repo checkout: %w", err)
-	}
-	return nil
+	return resp.Items, nil
 }

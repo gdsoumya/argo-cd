@@ -291,6 +291,22 @@ func (c *Cache) SetAppDetails(revision string, appSrc *appv1.ApplicationSource, 
 	return c.cache.SetItem(appDetailsCacheKey(revision, appSrc, srcRefs, trackingMethod, refSourceCommitSHAs), res, c.repoCacheExpiration, res == nil)
 }
 
+func (c *Cache) GetDirectories(revision string, q *apiclient.GetDirectoriesRequest, res *apiclient.GetDirectoriesResponse) error {
+	return c.cache.GetItem(getDirCacheKey(revision, q), res)
+}
+
+func (c *Cache) SetDirectories(revision string, q *apiclient.GetDirectoriesRequest, res *apiclient.GetDirectoriesResponse) error {
+	return c.cache.SetItem(getDirCacheKey(revision, q), res, c.repoCacheExpiration, res == nil)
+}
+
+func (c *Cache) GetFiles(revision string, q *apiclient.GetFilesRequest, res *apiclient.GetFilesResponse) error {
+	return c.cache.GetItem(getFilesCacheKey(revision, q), res)
+}
+
+func (c *Cache) SetFiles(revision string, q *apiclient.GetFilesRequest, res *apiclient.GetFilesResponse) error {
+	return c.cache.SetItem(getFilesCacheKey(revision, q), res, c.repoCacheExpiration, res == nil)
+}
+
 func revisionMetadataKey(repoURL, revision string) string {
 	return fmt.Sprintf("revisionmetadata|%s|%s", repoURL, revision)
 }
@@ -365,4 +381,12 @@ type CachedManifestResponse struct {
 	FirstFailureTimestamp           int64                       `json:"firstFailureTimestamp"`
 	NumberOfConsecutiveFailures     int                         `json:"numberOfConsecutiveFailures"`
 	NumberOfCachedResponsesReturned int                         `json:"numberOfCachedResponsesReturned"`
+}
+
+func getDirCacheKey(commitSHA string, q *apiclient.GetDirectoriesRequest) string {
+	return fmt.Sprintf("gdir|%s|%s", q.Repo.Repo, commitSHA)
+}
+
+func getFilesCacheKey(commitSHA string, q *apiclient.GetFilesRequest) string {
+	return fmt.Sprintf("gfiles|%s|%s", q.Repo.Repo, commitSHA)
 }

@@ -33,6 +33,30 @@ message ManifestRequest {
     map<string, github.com.argoproj.argo_cd.v2.pkg.apis.application.v1alpha1.RefTarget> refSources = 23;
 }
 
+// ListDirRequest requests a repository directory structure
+message GetDirectoriesRequest {
+    github.com.argoproj.argo_cd.v2.pkg.apis.application.v1alpha1.Repository repo = 1;
+    string revision = 2;
+}
+
+// FileList returns the contents of the repo of a GetDirectories request
+message GetDirectoriesResponse {
+    repeated string items = 1;
+}
+
+// GetFilesRequest return
+message GetFilesRequest {
+    github.com.argoproj.argo_cd.v2.pkg.apis.application.v1alpha1.Repository repo = 1;
+    string revision = 2;
+    string pattern = 3;
+}
+
+
+// GetFilesResponse returns the contents of the file of a GetFiles request
+message GetFilesResponse {
+    map<string,bytes> items = 1;
+}
+
 message ManifestRequestWithFiles {
     oneof part {
         ManifestRequest request = 1;
@@ -270,5 +294,13 @@ service RepoServerService {
 
     // GetHelmCharts returns list of helm charts in the specified repository
     rpc GetHelmCharts(HelmChartsRequest) returns (HelmChartsResponse) {
+    }
+
+    // GetDirectories returns the file contents at the specified repo and path
+    rpc GetDirectories(GetDirectoriesRequest) returns (GetDirectoriesResponse) {
+    }
+
+    // GetFiles returns all the file contents at the specified repo and path
+    rpc GetFiles(GetFilesRequest) returns (GetFilesResponse) {
     }
 }
