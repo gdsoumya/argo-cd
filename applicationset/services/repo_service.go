@@ -7,7 +7,6 @@ import (
 	"github.com/argoproj/argo-cd/v2/pkg/apis/application/v1alpha1"
 	repoapiclient "github.com/argoproj/argo-cd/v2/reposerver/apiclient"
 	"github.com/argoproj/argo-cd/v2/util/db"
-	"github.com/argoproj/argo-cd/v2/util/git"
 	ioutil "github.com/argoproj/argo-cd/v2/util/io"
 )
 
@@ -19,7 +18,6 @@ type RepositoryDB interface {
 
 type argoCDService struct {
 	repositoriesDB RepositoryDB
-	storecreds     git.CredsStore
 	repoClientSet  repoapiclient.Clientset
 }
 
@@ -32,11 +30,10 @@ type Repos interface {
 	GetDirectories(ctx context.Context, repoURL string, revision string) ([]string, error)
 }
 
-func NewArgoCDService(db db.ArgoDB, gitCredStore git.CredsStore, repoclientset repoapiclient.Clientset) Repos {
+func NewArgoCDService(db db.ArgoDB, repoclientset repoapiclient.Clientset) Repos {
 
 	return &argoCDService{
 		repositoriesDB: db.(RepositoryDB),
-		storecreds:     gitCredStore,
 		repoClientSet:  repoclientset,
 	}
 }

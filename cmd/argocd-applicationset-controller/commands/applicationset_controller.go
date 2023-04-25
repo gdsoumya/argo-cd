@@ -20,7 +20,6 @@ import (
 	"github.com/argoproj/argo-cd/v2/applicationset/webhook"
 	cmdutil "github.com/argoproj/argo-cd/v2/cmd/util"
 	"github.com/argoproj/argo-cd/v2/common"
-	"github.com/argoproj/argo-cd/v2/reposerver/askpass"
 	"github.com/argoproj/argo-cd/v2/util/env"
 	"github.com/argoproj/argo-cd/v2/util/github_app"
 
@@ -124,7 +123,6 @@ func NewCommand() *cobra.Command {
 			appSetConfig := appclientset.NewForConfigOrDie(mgr.GetConfig())
 			argoCDDB := db.NewDB(namespace, argoSettingsMgr, k8sClient)
 
-			askPassServer := askpass.NewServer()
 			scmAuth := generators.SCMAuthProviders{
 				GitHubApps: github_app.NewAuthCredentials(argoCDDB.(db.RepoCredsDB)),
 			}
@@ -152,7 +150,7 @@ func NewCommand() *cobra.Command {
 			terminalGenerators := map[string]generators.Generator{
 				"List":                    generators.NewListGenerator(),
 				"Clusters":                generators.NewClusterGenerator(mgr.GetClient(), ctx, k8sClient, namespace),
-				"Git":                     generators.NewGitGenerator(services.NewArgoCDService(argoCDDB, askPassServer, repoclientset)),
+				"Git":                     generators.NewGitGenerator(services.NewArgoCDService(argoCDDB, repoclientset)),
 				"SCMProvider":             generators.NewSCMProviderGenerator(mgr.GetClient(), scmAuth),
 				"ClusterDecisionResource": generators.NewDuckTypeGenerator(ctx, dynamicClient, k8sClient, namespace),
 				"PullRequest":             generators.NewPullRequestGenerator(mgr.GetClient(), scmAuth),
@@ -189,7 +187,6 @@ func NewCommand() *cobra.Command {
 				startWebhookServer(webhookHandler, webhookAddr)
 			}
 
-			go func() { errors.CheckError(askPassServer.Run(askpass.SocketPath)) }()
 			if err = (&controllers.ApplicationSetReconciler{
 				Generators:             topLevelGenerators,
 				Client:                 mgr.GetClient(),
