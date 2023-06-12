@@ -344,16 +344,7 @@ const prefsToQuery = (prefs: AppsListPreferences & {page: number; pageSize: numb
         query.namespaces = prefs.namespacesFilter;
     }
     if (prefs.clustersFilter) {
-        query.clusters = prefs.clustersFilter
-            .map(item => {
-                const match = item.match('^(.*) [(](http.*)[)]$');
-                if (match?.length === 3) {
-                    return match[2];
-                }
-                const urlMatch = item.match('^http.*$');
-                return urlMatch && urlMatch[0];
-            })
-            .filter(item => !!item);
+        query.clusters = prefs.clustersFilter;
     }
     if (prefs.autoSyncFilter?.length > 0) {
         query.autoSyncEnabled = prefs.autoSyncFilter.findIndex(item => item === 'Enabled') > -1;
@@ -382,11 +373,12 @@ export const ApplicationsList = (props: RouteComponentProps<{}>) => {
         // app refreshing might be done too quickly so that UI might miss it due to event batching
         // add refreshing annotation in the UI to improve user experience
         if (loaderRef.current) {
-            const applications = loaderRef.current.getData() as models.Application[];
+            const data = loaderRef.current.getData() as {applications: models.Application[]; stats: models.ApplicationListStats};
+            const applications = data.applications.slice();
             const app = applications.find(item => item.metadata.name === appName && item.metadata.namespace === appNamespace);
             if (app) {
                 AppUtils.setAppRefreshing(app);
-                loaderRef.current.setData(applications);
+                loaderRef.current.setData({...data, applications});
             }
         }
         services.applications.get(appName, appNamespace, 'normal');
