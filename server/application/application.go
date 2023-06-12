@@ -8,6 +8,7 @@ import (
 	"maps"
 	"math"
 	"reflect"
+	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -85,9 +86,10 @@ const (
 )
 
 var (
-	ErrCacheMiss       = cacheutil.ErrCacheMiss
-	watchAPIBufferSize = env.ParseNumFromEnv(argocommon.EnvWatchAPIBufferSize, 1000, 0, math.MaxInt32)
-	maxListLimit       = env.ParseNumFromEnv(argocommon.EnvMaxResourceListLimit, 3000, 0, math.MaxInt32)
+	ErrCacheMiss           = cacheutil.ErrCacheMiss
+	watchAPIBufferSize     = env.ParseNumFromEnv(argocommon.EnvWatchAPIBufferSize, 1000, 0, math.MaxInt32)
+	maxListLimit           = env.ParseNumFromEnv(argocommon.EnvMaxResourceListLimit, 3000, 0, math.MaxInt32)
+	clusterNameFilterRegex = regexp.MustCompile(`^(.*) [(](http.*)[)]$`)
 )
 
 // Server provides an Application service
@@ -3412,8 +3414,24 @@ func (s *Server) getAppFilter(ctx context.Context, q *application.ApplicationQue
 			return false
 		}
 
-		if len(q.GetClusters()) > 0 && !sets.NewString(q.GetClusters()...).Has(app.Spec.Destination.Server) {
-			return false
+		if len(q.GetClusters()) > 0 {
+			for _, item := range q.GetClusters() {
+				url := ""
+				name := ""
+				if res := clusterNameFilterRegex.FindStringSubmatch(item); len(res) == 3 {
+					name = res[1]
+					url = res[2]
+				} else if strings.HasPrefix(item, "http") {
+					url = item
+				} else {
+					name = item
+				}
+				if app.Spec.Destination.Server != "" && app.Spec.Destination.Server != url {
+					return false
+				} else if app.Spec.Destination.Name != "" && app.Spec.Destination.Name != name {
+					return false
+				}
+			}
 		}
 
 		if len(q.GetNamespaces()) > 0 && !sets.NewString(q.GetNamespaces()...).Has(app.Spec.Destination.Namespace) {
