@@ -322,7 +322,7 @@ func (s *Server) List(ctx context.Context, q *application.ApplicationQuery) (*v1
 	}
 
 	if len(filtered) > limit {
-		filtered = filtered[:*q.Limit]
+		filtered = filtered[:limit]
 	}
 
 	appList := v1alpha1.ApplicationList{
