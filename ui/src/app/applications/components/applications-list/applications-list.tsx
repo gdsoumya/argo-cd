@@ -870,6 +870,7 @@ export const ApplicationsList = (props: RouteComponentProps<any> & {objectListKi
                                                                         showHeader={healthBarPrefs.showHealthStatusBar}
                                                                         preferencesKey='applications-list'
                                                                         page={pref.page}
+                                                                        defaultPageSize={5}
                                                                         emptyState={() => (
                                                                             <EmptyState icon='fa fa-search'>
                                                                                 <h4>No matching application sets found</h4>
