@@ -570,6 +570,7 @@ export const ApplicationsList = (props: RouteComponentProps<{}>) => {
                                                                         showHeader={healthBarPrefs.showHealthStatusBar}
                                                                         preferencesKey='applications-list'
                                                                         page={pref.page}
+                                                                        defaultPageSize={5}
                                                                         emptyState={() => (
                                                                             <EmptyState icon='fa fa-search'>
                                                                                 <h4>No matching applications found</h4>

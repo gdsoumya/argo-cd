@@ -22,15 +22,16 @@ export interface PaginateProps<T> {
     header?: React.ReactNode;
     showHeader?: boolean;
     sortOptions?: SortOption<T>[];
+    defaultPageSize?: number;
 }
 
-export function Paginate<T>({page, onPageChange, children, data, emptyState, preferencesKey, header, showHeader, sortOptions, total}: PaginateProps<T>) {
+export function Paginate<T>({page, onPageChange, children, data, emptyState, preferencesKey, header, showHeader, sortOptions, total, defaultPageSize}: PaginateProps<T>) {
     const totalItems = total || data.length;
     return (
         <DataLoader load={() => services.viewPreferences.getPreferences()}>
             {pref => {
                 preferencesKey = preferencesKey || 'default';
-                const pageSize = pref.pageSizes[preferencesKey] || 10;
+                const pageSize = pref.pageSizes[preferencesKey] || defaultPageSize || 10;
                 const sortOption = sortOptions ? (pref.sortOptions && pref.sortOptions[preferencesKey]) || sortOptions[0].title : '';
                 const pageCount = pageSize === -1 ? 1 : Math.ceil(totalItems / pageSize);
                 if (pageCount <= page) {
