@@ -238,9 +238,29 @@ func (s *Service) ListRefs(_ context.Context, q *apiclient.ListRefsRequest) (*ap
 		return nil, err
 	}
 
+	var branches []string
+	var tags []string
+	var apiRefs []*apiclient.Ref
+	for _, revision := range refs {
+		if revision.Name().IsBranch() {
+			branches = append(branches, revision.Name().Short())
+		} else if revision.Name().IsTag() {
+			tags = append(tags, revision.Name().Short())
+		}
+		strs := revision.Strings()
+		apiRefs = append(apiRefs, &apiclient.Ref{Name: strs[0], Target: strs[1]})
+	}
+
+	log.Debugf("LsRefs resolved %d branches and %d tags on repository", len(branches), len(tags))
+
+	// Would prefer to sort by last modified date but that info does not appear to be available without resolving each ref
+	sort.Strings(branches)
+	sort.Strings(tags)
+
 	res := apiclient.Refs{
-		Branches: refs.Branches,
-		Tags:     refs.Tags,
+		Branches: branches,
+		Tags:     tags,
+		Refs:     apiRefs,
 	}
 
 	return &res, nil
