@@ -106,10 +106,16 @@ message ListRefsRequest {
     github.com.argoproj.argo_cd.v3.pkg.apis.application.v1alpha1.Repository repo = 1;
 }
 
+message Ref {
+    string name = 1;
+    string target = 2;
+}
+
 // A subset of the repository's named refs
 message Refs {
     repeated string branches = 1;
     repeated string tags = 2;
+    repeated Ref refs = 3;
 }
 
 // ListAppsRequest requests a repository directory structure

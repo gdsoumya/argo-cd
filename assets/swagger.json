@@ -6188,6 +6188,17 @@
         }
       }
     },
+    "repositoryRef": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        }
+      }
+    },
     "repositoryRefs": {
       "type": "object",
       "title": "A subset of the repository's named refs",
@@ -6196,6 +6207,12 @@
           "type": "array",
           "items": {
             "type": "string"
+          }
+        },
+        "refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/repositoryRef"
           }
         },
         "tags": {

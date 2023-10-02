@@ -6,6 +6,7 @@ package mocks
 
 import (
 	"github.com/argoproj/argo-cd/v3/util/git"
+	"github.com/go-git/go-git/v5/plumbing"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -748,23 +749,23 @@ func (_c *Client_LsLargeFiles_Call) RunAndReturn(run func() ([]string, error)) *
 }
 
 // LsRefs provides a mock function for the type Client
-func (_mock *Client) LsRefs() (*git.Refs, error) {
+func (_mock *Client) LsRefs() ([]*plumbing.Reference, error) {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for LsRefs")
 	}
 
-	var r0 *git.Refs
+	var r0 []*plumbing.Reference
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func() (*git.Refs, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func() ([]*plumbing.Reference, error)); ok {
 		return returnFunc()
 	}
-	if returnFunc, ok := ret.Get(0).(func() *git.Refs); ok {
+	if returnFunc, ok := ret.Get(0).(func() []*plumbing.Reference); ok {
 		r0 = returnFunc()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*git.Refs)
+			r0 = ret.Get(0).([]*plumbing.Reference)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func() error); ok {
@@ -792,12 +793,12 @@ func (_c *Client_LsRefs_Call) Run(run func()) *Client_LsRefs_Call {
 	return _c
 }
 
-func (_c *Client_LsRefs_Call) Return(refs *git.Refs, err error) *Client_LsRefs_Call {
-	_c.Call.Return(refs, err)
+func (_c *Client_LsRefs_Call) Return(references []*plumbing.Reference, err error) *Client_LsRefs_Call {
+	_c.Call.Return(references, err)
 	return _c
 }
 
-func (_c *Client_LsRefs_Call) RunAndReturn(run func() (*git.Refs, error)) *Client_LsRefs_Call {
+func (_c *Client_LsRefs_Call) RunAndReturn(run func() ([]*plumbing.Reference, error)) *Client_LsRefs_Call {
 	_c.Call.Return(run)
 	return _c
 }
