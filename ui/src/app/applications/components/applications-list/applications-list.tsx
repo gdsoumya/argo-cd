@@ -110,7 +110,7 @@ function loadApplications(q: AppsQuery): Observable<{applications: models.Applic
     );
 }
 
-const ViewPref = ({children}: {children: (pref: AppsListPreferences & {page: number; pageSize: number; search: string}) => React.ReactNode}) => (
+const ViewPref = ({children}: {children: (data: {pref: AppsListPreferences & {page: number; pageSize: number; search: string}, healthBarPrefs: HealthStatusBarPreferences}) => React.ReactNode}) => (
     <ObservableQuery>
         {q => (
             <DataLoader
@@ -177,7 +177,7 @@ const ViewPref = ({children}: {children: (pref: AppsListPreferences & {page: num
                         })
                     )
                 }>
-                {pref => children(pref)}
+                {pref => children({pref, healthBarPrefs: pref.statusBarView || ({} as HealthStatusBarPreferences)})}
             </DataLoader>
         )}
     </ObservableQuery>
@@ -191,8 +191,8 @@ function tryJsonParse(input: string) {
     }
 }
 
-const SearchBar = (props: {content: string; ctx: ContextApis; apps: models.Application[]}) => {
-    const {content, ctx, apps} = {...props};
+const SearchBar = (props: {content: string; ctx: ContextApis}) => {
+    const {content, ctx} = {...props};
 
     const searchBar = React.useRef<HTMLDivElement>(null);
 
@@ -236,54 +236,58 @@ const SearchBar = (props: {content: string; ctx: ContextApis; apps: models.Appli
     });
 
     return (
-        <Autocomplete
-            filterSuggestions={true}
-            renderInput={inputProps => (
-                <div className='applications-list__search' ref={searchBar}>
-                    <i
-                        className='fa fa-search'
-                        style={{marginRight: '9px', cursor: 'pointer'}}
-                        onClick={() => {
-                            if (searchBar.current) {
-                                searchBar.current.querySelector('input').focus();
-                            }
-                        }}
-                    />
-                    <input
-                        {...inputProps}
-                        onFocus={e => {
-                            e.target.select();
-                            if (inputProps.onFocus) {
-                                inputProps.onFocus(e);
-                            }
-                        }}
-                        style={{fontSize: '14px'}}
-                        className='argo-field'
-                        placeholder='Search applications...'
-                    />
-                    <div className='keyboard-hint'>/</div>
-                    {content && <i className='fa fa-times' onClick={() => setValue(null)} style={{cursor: 'pointer', marginLeft: '5px'}} />}
-                </div>
+        <DataLoader input={value} noLoaderOnInputChange={true} load={() => services.applications.list({fields: ['items.metadata.name'], search: value, limit: 100}).then(res => res.items)}>
+            {apps => (
+                <Autocomplete
+                    filterSuggestions={true}
+                    renderInput={inputProps => (
+                        <div className='applications-list__search' ref={searchBar}>
+                            <i
+                                className='fa fa-search'
+                                style={{marginRight: '9px', cursor: 'pointer'}}
+                                onClick={() => {
+                                    if (searchBar.current) {
+                                        searchBar.current.querySelector('input').focus();
+                                    }
+                                }}
+                            />
+                            <input
+                                {...inputProps}
+                                onFocus={e => {
+                                    e.target.select();
+                                    if (inputProps.onFocus) {
+                                        inputProps.onFocus(e);
+                                    }
+                                }}
+                                style={{fontSize: '14px'}}
+                                className='argo-field'
+                                placeholder='Search applications...'
+                            />
+                            <div className='keyboard-hint'>/</div>
+                            {content && <i className='fa fa-times' onClick={() => setValue(null)} style={{cursor: 'pointer', marginLeft: '5px'}} />}
+                        </div>
+                    )}
+                    wrapperProps={{className: 'applications-list__search-wrapper'}}
+                    renderItem={item => (
+                        <React.Fragment>
+                            <i className='icon argo-icon-application' /> {item.label}
+                        </React.Fragment>
+                    )}
+                    onSelect={val => {
+                        const selectedApp = apps?.find(app => {
+                            const qualifiedName = AppUtils.appQualifiedName(app, useAuthSettingsCtx?.appsInAnyNamespaceEnabled);
+                            return qualifiedName === val;
+                        });
+                        if (selectedApp) {
+                            ctx.navigation.goto(`/${AppUtils.getAppUrl(selectedApp)}`);
+                        }
+                    }}
+                    onChange={e => setValue(e.target.value)}
+                    value={value || ''}
+                    items={apps.map(app => AppUtils.appQualifiedName(app, useAuthSettingsCtx?.appsInAnyNamespaceEnabled))}
+                />
             )}
-            wrapperProps={{className: 'applications-list__search-wrapper'}}
-            renderItem={item => (
-                <React.Fragment>
-                    <i className='icon argo-icon-application' /> {item.label}
-                </React.Fragment>
-            )}
-            onSelect={val => {
-                const selectedApp = apps?.find(app => {
-                    const qualifiedName = AppUtils.appQualifiedName(app, useAuthSettingsCtx?.appsInAnyNamespaceEnabled);
-                    return qualifiedName === val;
-                });
-                if (selectedApp) {
-                    ctx.navigation.goto(`/${AppUtils.getAppUrl(selectedApp)}`);
-                }
-            }}
-            onChange={e => setValue(e.target.value)}
-            value={value || ''}
-            items={apps.map(app => AppUtils.appQualifiedName(app, useAuthSettingsCtx?.appsInAnyNamespaceEnabled))}
-        />
+        </DataLoader>
     );
 };
 
@@ -421,13 +425,89 @@ export const ApplicationsList = (props: RouteComponentProps<{}>) => {
                 <Consumer>
                     {ctx => (
                         <ViewPref>
-                            {pref => (
+                            {({pref, healthBarPrefs}) => (
                                 <Page
                                     key={pref.view}
                                     title={getPageTitle(pref.view)}
                                     useTitleOnly={true}
                                     toolbar={{breadcrumbs: [{title: 'Applications', path: '/applications'}]}}
                                     hideAuth={true}>
+                                    <FlexTopBar
+                                        toolbar={{
+                                            tools: (
+                                                <React.Fragment key='app-list-tools'>
+                                                    <Query>{q => <SearchBar content={q.get('search')} ctx={ctx} />}</Query>
+                                                    <Tooltip content='Toggle Health Status Bar'>
+                                                        <button
+                                                            className={`applications-list__accordion argo-button argo-button--base${
+                                                                healthBarPrefs.showHealthStatusBar ? '-o' : ''
+                                                            }`}
+                                                            style={{border: 'none'}}
+                                                            onClick={() => {
+                                                                healthBarPrefs.showHealthStatusBar = !healthBarPrefs.showHealthStatusBar;
+                                                                services.viewPreferences.updatePreferences({
+                                                                    appList: {
+                                                                        ...pref,
+                                                                        statusBarView: {
+                                                                            ...healthBarPrefs,
+                                                                            showHealthStatusBar: healthBarPrefs.showHealthStatusBar
+                                                                        }
+                                                                    }
+                                                                });
+                                                            }}>
+                                                            <i className={`fas fa-ruler-horizontal`} />
+                                                        </button>
+                                                    </Tooltip>
+                                                    <div className='applications-list__view-type' style={{marginLeft: 'auto'}}>
+                                                        <i
+                                                            className={classNames('fa fa-th', {selected: pref.view === Tiles}, 'menu_icon')}
+                                                            title='Tiles'
+                                                            onClick={() => {
+                                                                ctx.navigation.goto('.', {view: Tiles});
+                                                                services.viewPreferences.updatePreferences({appList: {...pref, view: Tiles}});
+                                                            }}
+                                                        />
+                                                        <i
+                                                            className={classNames('fa fa-th-list', {selected: pref.view === List}, 'menu_icon')}
+                                                            title='List'
+                                                            onClick={() => {
+                                                                ctx.navigation.goto('.', {view: List});
+                                                                services.viewPreferences.updatePreferences({appList: {...pref, view: List}});
+                                                            }}
+                                                        />
+                                                        <i
+                                                            className={classNames('fa fa-chart-pie', {selected: pref.view === Summary}, 'menu_icon')}
+                                                            title='Summary'
+                                                            onClick={() => {
+                                                                ctx.navigation.goto('.', {view: Summary});
+                                                                services.viewPreferences.updatePreferences({appList: {...pref, view: Summary}});
+                                                            }}
+                                                        />
+                                                    </div>
+                                                </React.Fragment>
+                                            ),
+                                            actionMenu: {
+                                                items: [
+                                                    {
+                                                        title: 'New App',
+                                                        iconClassName: 'fa fa-plus',
+                                                        qeId: 'applications-list-button-new-app',
+                                                        action: () => ctx.navigation.goto('.', {new: '{}'}, {replace: true})
+                                                    },
+                                                    {
+                                                        title: 'Sync Apps',
+                                                        iconClassName: 'fa fa-sync',
+                                                        action: () => ctx.navigation.goto('.', {syncApps: true}, {replace: true})
+                                                    },
+                                                    {
+                                                        title: 'Refresh Apps',
+                                                        iconClassName: 'fa fa-redo',
+                                                        action: () => ctx.navigation.goto('.', {refreshApps: true}, {replace: true})
+                                                    }
+                                                ]
+                                            }
+                                        }}
+                                    />
                                     <DataLoader
                                         input={JSON.stringify({...prefsToQuery(pref, query.get('search'))})}
                                         ref={loaderRef}
@@ -459,82 +539,6 @@ export const ApplicationsList = (props: RouteComponentProps<{}>) => {
                                             };
                                             return (
                                                 <React.Fragment>
-                                                    <FlexTopBar
-                                                        toolbar={{
-                                                            tools: (
-                                                                <React.Fragment key='app-list-tools'>
-                                                                    <Query>{q => <SearchBar content={q.get('search')} apps={applications} ctx={ctx} />}</Query>
-                                                                    <Tooltip content='Toggle Health Status Bar'>
-                                                                        <button
-                                                                            className={`applications-list__accordion argo-button argo-button--base${
-                                                                                healthBarPrefs.showHealthStatusBar ? '-o' : ''
-                                                                            }`}
-                                                                            style={{border: 'none'}}
-                                                                            onClick={() => {
-                                                                                healthBarPrefs.showHealthStatusBar = !healthBarPrefs.showHealthStatusBar;
-                                                                                services.viewPreferences.updatePreferences({
-                                                                                    appList: {
-                                                                                        ...pref,
-                                                                                        statusBarView: {
-                                                                                            ...healthBarPrefs,
-                                                                                            showHealthStatusBar: healthBarPrefs.showHealthStatusBar
-                                                                                        }
-                                                                                    }
-                                                                                });
-                                                                            }}>
-                                                                            <i className={`fas fa-ruler-horizontal`} />
-                                                                        </button>
-                                                                    </Tooltip>
-                                                                    <div className='applications-list__view-type' style={{marginLeft: 'auto'}}>
-                                                                        <i
-                                                                            className={classNames('fa fa-th', {selected: pref.view === Tiles}, 'menu_icon')}
-                                                                            title='Tiles'
-                                                                            onClick={() => {
-                                                                                ctx.navigation.goto('.', {view: Tiles});
-                                                                                services.viewPreferences.updatePreferences({appList: {...pref, view: Tiles}});
-                                                                            }}
-                                                                        />
-                                                                        <i
-                                                                            className={classNames('fa fa-th-list', {selected: pref.view === List}, 'menu_icon')}
-                                                                            title='List'
-                                                                            onClick={() => {
-                                                                                ctx.navigation.goto('.', {view: List});
-                                                                                services.viewPreferences.updatePreferences({appList: {...pref, view: List}});
-                                                                            }}
-                                                                        />
-                                                                        <i
-                                                                            className={classNames('fa fa-chart-pie', {selected: pref.view === Summary}, 'menu_icon')}
-                                                                            title='Summary'
-                                                                            onClick={() => {
-                                                                                ctx.navigation.goto('.', {view: Summary});
-                                                                                services.viewPreferences.updatePreferences({appList: {...pref, view: Summary}});
-                                                                            }}
-                                                                        />
-                                                                    </div>
-                                                                </React.Fragment>
-                                                            ),
-                                                            actionMenu: {
-                                                                items: [
-                                                                    {
-                                                                        title: 'New App',
-                                                                        iconClassName: 'fa fa-plus',
-                                                                        qeId: 'applications-list-button-new-app',
-                                                                        action: () => ctx.navigation.goto('.', {new: '{}'}, {replace: true})
-                                                                    },
-                                                                    {
-                                                                        title: 'Sync Apps',
-                                                                        iconClassName: 'fa fa-sync',
-                                                                        action: () => ctx.navigation.goto('.', {syncApps: true}, {replace: true})
-                                                                    },
-                                                                    {
-                                                                        title: 'Refresh Apps',
-                                                                        iconClassName: 'fa fa-redo',
-                                                                        action: () => ctx.navigation.goto('.', {refreshApps: true}, {replace: true})
-                                                                    }
-                                                                ]
-                                                            }
-                                                        }}
-                                                    />
                                                     <div className='applications-list'>
                                                         {stats.total === 0 && !isFiltered(pref) ? (
                                                             <EmptyState icon='argo-icon-application'>
