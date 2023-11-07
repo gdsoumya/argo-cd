@@ -15,7 +15,7 @@ spec:
     spec:
       syncPolicy:
        automated:
-        prune: {{.automated.prune | not | not}}
+        prune: '{{.automated.prune}}'
       project: default
       source:
         repoURL: https://github.com/gdsoumya/argo-cd.git
