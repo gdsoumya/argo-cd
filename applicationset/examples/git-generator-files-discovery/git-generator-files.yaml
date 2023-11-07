@@ -17,7 +17,7 @@ spec:
     spec:
       syncPolicy:
        automated:
-        prune: "false"
+        prune: false
       project: default
       source:
         repoURL: https://github.com/argoproj/argo-cd.git
