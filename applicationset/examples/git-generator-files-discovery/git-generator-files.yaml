@@ -13,15 +13,15 @@ spec:
         - path: "applicationset/examples/git-generator-files-discovery/cluster-config/**/config.json"
   template:
     metadata:
-      name: '{{.cluster.name}}-{{.aws_account}}guestbook'
+      name: '{{.cluster.name}}-{{.aws_account}}-guestbook'
     spec:
       syncPolicy:
        automated:
-        prune: false
+        prune: {{.automated.prune}}
       project: default
       source:
-        repoURL: https://github.com/argoproj/argo-cd.git
-        targetRevision: HEAD
+        repoURL: https://github.com/https://github.com/gdsoumya/argo-cd.git
+        targetRevision: gdsoumya-patch-1
         path: "applicationset/examples/git-generator-files-discovery/apps/guestbook"
       destination:
         server: https://kubernetes.default.svc
