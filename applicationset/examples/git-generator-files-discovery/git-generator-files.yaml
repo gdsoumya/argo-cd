@@ -13,7 +13,7 @@ spec:
         - path: "applicationset/examples/git-generator-files-discovery/cluster-config/**/config.json"
   template:
     metadata:
-      name: '{{.cluster.name}}-{{.automated.prune}}guestbook'
+      name: '{{.cluster.name}}-{{.aws_account}}guestbook'
     spec:
       syncPolicy:
        automated:
