@@ -13,11 +13,11 @@ spec:
         - path: "applicationset/examples/git-generator-files-discovery/cluster-config/**/config.json"
   template:
     metadata:
-      name: '{{.cluster.name}}-{{.aws_account}}-guestbook'
+      name: '{{.cluster.name}}-{{.automated.prune | not | not}}-guestbook'
     spec:
       syncPolicy:
        automated:
-        prune: '{{.automated.prune}}'
+        prune: '{{.automated.prune | not | not}}'
       project: default
       source:
         repoURL: https://github.com/https://github.com/gdsoumya/argo-cd.git
