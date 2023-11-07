@@ -15,6 +15,9 @@ spec:
     metadata:
       name: '{{.cluster.name}}-guestbook'
     spec:
+      syncPolicy:
+       automated:
+        prune: '{{.automated.prune}}'
       project: default
       source:
         repoURL: https://github.com/argoproj/argo-cd.git
@@ -24,3 +27,4 @@ spec:
         server: https://kubernetes.default.svc
         #server: '{{.cluster.address}}'
         namespace: guestbook
+      
