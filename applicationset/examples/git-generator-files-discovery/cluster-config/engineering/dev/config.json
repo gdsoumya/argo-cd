@@ -6,4 +6,6 @@
     "name": "engineering-dev",
     "address": "http://1.2.3.4"
   }
+    "automated" :
+      {"prune": true}
 }
