@@ -7,7 +7,7 @@ spec:
   goTemplateOptions: ["missingkey=error"]
   generators:
     - git:
-        repoURL:  https://github.com/https://github.com/gdsoumya/argo-cd.git
+        repoURL:  https://github.com/gdsoumya/argo-cd.git
         revision: gdsoumya-patch-1
         files:
         - path: "applicationset/examples/git-generator-files-discovery/cluster-config/**/config.json"
@@ -20,7 +20,7 @@ spec:
         prune: true
       project: default
       source:
-        repoURL: https://github.com/https://github.com/gdsoumya/argo-cd.git
+        repoURL: https://github.com/gdsoumya/argo-cd.git
         targetRevision: gdsoumya-patch-1
         path: "applicationset/examples/git-generator-files-discovery/apps/guestbook"
       destination:
