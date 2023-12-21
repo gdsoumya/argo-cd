@@ -10,6 +10,7 @@ import {ComparisonStatusIcon, HealthStatusIcon} from '../utils';
 const optionsFrom = (options: string[], filter: string[]) => {
     return options
         .filter(s => filter.indexOf(s) === -1)
+        .sort((a, b) => a.localeCompare(b))
         .map(item => {
             return {label: item};
         });
@@ -61,7 +62,7 @@ const LabelsFilter = (props: AppFilterProps) => {
         suggestions.push(labelStats.key);
         labelStats.values.forEach(val => suggestions.push(`${labelStats.key}=${val}`));
     });
-    const labelOptions = suggestions.map(s => {
+    const labelOptions = suggestions.sort((a, b) => a.localeCompare(b)).map(s => {
         return {label: s};
     });
 
