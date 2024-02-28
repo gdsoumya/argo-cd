@@ -1416,7 +1416,7 @@ func (s *Server) Watch(q *application.ApplicationQuery, ws application.Applicati
 	// If watch API is executed for one application when emit event even if resource version is provided
 	// This is required since single app watch API is used for during operations like app syncing and it is
 	// critical to never miss events.
-	if q.GetName() == "" {
+	if q.GetResourceVersion() == "" || q.GetName() != "" {
 		apps, err := s.appLister.List(labels.Everything())
 		if err != nil {
 			return fmt.Errorf("error listing apps with selector: %w", err)
