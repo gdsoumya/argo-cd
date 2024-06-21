@@ -16,6 +16,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/argoproj/argo-cd/v3/controller/cache/ak-dashboard"
+
 	clustercache "github.com/argoproj/argo-cd/gitops-engine/pkg/cache"
 	"github.com/argoproj/argo-cd/gitops-engine/pkg/health"
 	"github.com/argoproj/argo-cd/gitops-engine/pkg/utils/kube"
@@ -541,6 +543,10 @@ func (c *liveStateCache) getCluster(cluster *appv1.Cluster) (clustercache.Cluste
 	if log.GetLevel() < log.DebugLevel {
 		clusterCacheConfig.WarningHandler = rest.NoWarnings{}
 	}
+	dashboardProcessor, err := ak_dashboard.NewProcessor(c.appInformer, clusterCacheConfig)
+	if err != nil {
+		return nil, fmt.Errorf("error creating dashboard processor: %w", err)
+	}
 
 	clusterCacheOpts := []clustercache.UpdateSettingsFunc{
 		clustercache.SetListSemaphore(semaphore.NewWeighted(clusterCacheListSemaphoreSize)),
@@ -576,6 +582,7 @@ func (c *liveStateCache) getCluster(cluster *appv1.Cluster) (clustercache.Cluste
 					res.manifestHash = hash
 				}
 			}
+			dashboardProcessor.OnResourceUpdated(un, appName, cacheSettings.clusterSettings.ResourceHealthOverride)
 
 			// edge case. we do not label CRDs, so they miss the tracking label we inject. But we still
 			// want the full resource to be available in our cache (to diff), so we store all CRDs
@@ -588,7 +595,10 @@ func (c *liveStateCache) getCluster(cluster *appv1.Cluster) (clustercache.Cluste
 		clustercache.SetEventProcessingInterval(clusterCacheEventsProcessingInterval),
 	}
 
+	clusterCacheOpts = append(clusterCacheOpts, dashboardProcessor.GetCacheSettings(cacheSettings.clusterSettings.ResourceHealthOverride)...)
+
 	clusterCache = clustercache.NewClusterCache(clusterCacheConfig, clusterCacheOpts...)
+	dashboardProcessor.StartInfoCollector(clusterCache)
 
 	_ = clusterCache.OnResourceUpdated(func(newRes *clustercache.Resource, oldRes *clustercache.Resource, namespaceResources map[kube.ResourceKey]*clustercache.Resource) {
 		toNotify := make(map[string]bool)
@@ -633,6 +643,9 @@ func (c *liveStateCache) getCluster(cluster *appv1.Cluster) (clustercache.Cluste
 			toNotify[app] = isRootAppNode(r) || toNotify[app]
 		}
 		c.onObjectUpdated(toNotify, ref)
+		if newRes == nil {
+			dashboardProcessor.OnResourceDeleted(oldRes, cacheSettings.clusterSettings.ResourceHealthOverride)
+		}
 	})
 
 	_ = clusterCache.OnEvent(func(_ watch.EventType, un *unstructured.Unstructured) {
