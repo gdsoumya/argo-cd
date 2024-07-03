@@ -78,7 +78,12 @@ func (p *akProcessor) sendEvents(events *gkEvents, override health.HealthOverrid
 		log.Errorf("failed to marshal resource events: %v", err)
 	}
 	log.Debug("sending resource events", string(jsonData))
-	resp, err := http.Post(resourceURL, "application/json", bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest(http.MethodPost, resourceURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		log.Errorf("failed to create request: %v", err)
+		return
+	}
+	resp, err := p.client.Do(req)
 	if err != nil {
 		log.Errorf("failed to send resource events: %v", err)
 		return
@@ -98,7 +103,12 @@ func (p *akProcessor) sendClusterInfo(info clustercache.ClusterInfo) {
 		log.Errorf("failed to marshal cluster info: %v", err)
 		return
 	}
-	resp, err := http.Post(clusterInfoURL, "application/json", bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest(http.MethodPost, clusterInfoURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		log.Errorf("failed to create request: %v", err)
+		return
+	}
+	resp, err := p.client.Do(req)
 	if err != nil {
 		log.Errorf("failed to send cluster info: %v", err)
 		return
