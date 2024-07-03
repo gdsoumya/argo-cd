@@ -95,6 +95,7 @@ func NewResourceEvent(events gkEvents, appLister v1alpha1.ApplicationNamespaceLi
 		obj.SetNamespace(ref.Namespace)
 		obj.SetAPIVersion(ref.APIVersion)
 		obj.SetKind(ref.Kind)
+		obj.SetOwnerReferences(res.OwnerRefs)
 		deletedObjs = append(deletedObjs, obj)
 	}
 	resourceEvents.DeletedResources = deletedObjs
