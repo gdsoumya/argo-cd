@@ -14,8 +14,10 @@ import (
 )
 
 type ClusterInfo struct {
-	K8sVersion   string        `json:"k8sVersion,omitempty"`
-	APIResources []APIResource `json:"apiResources,omitempty"`
+	K8sVersion       string        `json:"k8sVersion,omitempty"`
+	APIResources     []APIResource `json:"apiResources,omitempty"`
+	APIResourceCount int           `json:"apiResourceCount,omitempty"`
+	ObjectCount      int           `json:"objectCount,omitempty"`
 }
 
 type APIResource struct {
@@ -56,8 +58,10 @@ func NewClusterInfo(info clustercache.ClusterInfo, crds *extensionsv1.CustomReso
 	}
 
 	return ClusterInfo{
-		K8sVersion:   info.K8SVersion,
-		APIResources: apiResources,
+		K8sVersion:       info.K8SVersion,
+		APIResources:     apiResources,
+		APIResourceCount: info.APIsCount,
+		ObjectCount:      info.ResourcesCount,
 	}
 }
 
