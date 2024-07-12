@@ -16,6 +16,7 @@ import (
 	"github.com/r3labs/diff/v3"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimachineryvalidation "k8s.io/apimachinery/pkg/api/validation"
@@ -849,6 +850,9 @@ func verifyGenerateManifests(
 			})
 			continue
 		}
+
+		// akp custom metadata for inferring cluster destination
+		ctx = metadata.AppendToOutgoingContext(ctx, "akp-dest-server", app.Spec.Destination.Server, "akp-dest-namespace", app.Spec.Destination.Namespace, "akp-dest-name", app.Spec.Destination.Name)
 
 		appLabelKey, err := settingsMgr.GetAppInstanceLabelKey()
 		if err != nil {
