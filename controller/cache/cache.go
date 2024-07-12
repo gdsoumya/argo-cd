@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/argoproj/argo-cd/v2/controller/cache/ak-dashboard"
+	"github.com/argoproj/argo-cd/v3/controller/cache/ak-dashboard"
 	clustercache "github.com/argoproj/gitops-engine/pkg/cache"
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/argoproj/gitops-engine/pkg/utils/kube"

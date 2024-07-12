@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/argoproj/argo-cd/v2/pkg/client/listers/application/v1alpha1"
+	"github.com/argoproj/argo-cd/v3/pkg/client/listers/application/v1alpha1"
 	clustercache "github.com/argoproj/gitops-engine/pkg/cache"
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/argoproj/gitops-engine/pkg/utils/kube"

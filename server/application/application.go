@@ -14,10 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/argoproj/gitops-engine/pkg/health"
-
-	cacheutil "github.com/argoproj/argo-cd/v3/util/cache"
-
 	kubecache "github.com/argoproj/gitops-engine/pkg/cache"
 	"github.com/argoproj/gitops-engine/pkg/diff"
 	"github.com/argoproj/gitops-engine/pkg/sync/common"
@@ -45,6 +41,7 @@ import (
 
 	argocommon "github.com/argoproj/argo-cd/v3/common"
 	"github.com/argoproj/argo-cd/v3/pkg/apiclient/application"
+	applicationType "github.com/argoproj/argo-cd/v3/pkg/apis/application"
 	"github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 	appclientset "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned"
 	applisters "github.com/argoproj/argo-cd/v3/pkg/client/listers/application/v1alpha1"
@@ -53,6 +50,7 @@ import (
 	"github.com/argoproj/argo-cd/v3/server/deeplinks"
 	applog "github.com/argoproj/argo-cd/v3/util/app/log"
 	"github.com/argoproj/argo-cd/v3/util/argo"
+	cacheutil "github.com/argoproj/argo-cd/v3/util/cache"
 	"github.com/argoproj/argo-cd/v3/util/collections"
 	"github.com/argoproj/argo-cd/v3/util/db"
 	"github.com/argoproj/argo-cd/v3/util/env"
@@ -65,8 +63,6 @@ import (
 	"github.com/argoproj/argo-cd/v3/util/security"
 	"github.com/argoproj/argo-cd/v3/util/session"
 	"github.com/argoproj/argo-cd/v3/util/settings"
-
-	applicationType "github.com/argoproj/argo-cd/v3/pkg/apis/application"
 )
 
 type AppResourceTreeFn func(ctx context.Context, app *v1alpha1.Application) (*v1alpha1.ApplicationTree, error)
