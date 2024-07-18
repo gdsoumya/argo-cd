@@ -25,7 +25,7 @@ var (
 	clusterCacheSetReplaceGKHandler func(handler func(gk schema.GroupKind) func()) clustercache.UpdateSettingsFunc
 	dashboardEnabled                bool
 
-	collectClusterInfoInterval = 10 * time.Minute
+	collectClusterInfoInterval = 5 * time.Minute
 
 	httpClientTimeout = 30 * time.Second
 
@@ -123,9 +123,9 @@ func (p *akProcessor) StartInfoCollector(cache clustercache.ClusterCache) {
 	ctx, cancel := context.WithCancel(context.Background())
 	stopPrevCollector = cancel
 
-	ticker := time.NewTicker(collectClusterInfoInterval)
-	defer ticker.Stop()
 	go func() {
+		ticker := time.NewTicker(collectClusterInfoInterval)
+		defer ticker.Stop()
 		if err := cache.EnsureSynced(); err == nil {
 			p.sendClusterInfo(cache.GetClusterInfo())
 		}
