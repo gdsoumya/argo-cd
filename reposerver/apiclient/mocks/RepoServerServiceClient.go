@@ -41,6 +41,79 @@ func (_m *RepoServerServiceClient) EXPECT() *RepoServerServiceClient_Expecter {
 	return &RepoServerServiceClient_Expecter{mock: &_m.Mock}
 }
 
+// CommitFiles provides a mock function for the type RepoServerServiceClient
+func (_mock *RepoServerServiceClient) CommitFiles(ctx context.Context, in *apiclient.CommitFilesRequest, opts ...grpc.CallOption) (*apiclient.CommitFilesResponse, error) {
+	// grpc.CallOption
+	_va := make([]interface{}, len(opts))
+	for _i := range opts {
+		_va[_i] = opts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, in)
+	_ca = append(_ca, _va...)
+	ret := _mock.Called(_ca...)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CommitFiles")
+	}
+
+	var r0 *apiclient.CommitFilesResponse
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *apiclient.CommitFilesRequest, ...grpc.CallOption) (*apiclient.CommitFilesResponse, error)); ok {
+		return returnFunc(ctx, in, opts...)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *apiclient.CommitFilesRequest, ...grpc.CallOption) *apiclient.CommitFilesResponse); ok {
+		r0 = returnFunc(ctx, in, opts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*apiclient.CommitFilesResponse)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *apiclient.CommitFilesRequest, ...grpc.CallOption) error); ok {
+		r1 = returnFunc(ctx, in, opts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// RepoServerServiceClient_CommitFiles_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CommitFiles'
+type RepoServerServiceClient_CommitFiles_Call struct {
+	*mock.Call
+}
+
+// CommitFiles is a helper method to define mock.On call
+//   - ctx
+//   - in
+//   - opts
+func (_e *RepoServerServiceClient_Expecter) CommitFiles(ctx interface{}, in interface{}, opts ...interface{}) *RepoServerServiceClient_CommitFiles_Call {
+	return &RepoServerServiceClient_CommitFiles_Call{Call: _e.mock.On("CommitFiles",
+		append([]interface{}{ctx, in}, opts...)...)}
+}
+
+func (_c *RepoServerServiceClient_CommitFiles_Call) Run(run func(ctx context.Context, in *apiclient.CommitFilesRequest, opts ...grpc.CallOption)) *RepoServerServiceClient_CommitFiles_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		variadicArgs := make([]grpc.CallOption, len(args)-2)
+		for i, a := range args[2:] {
+			if a != nil {
+				variadicArgs[i] = a.(grpc.CallOption)
+			}
+		}
+		run(args[0].(context.Context), args[1].(*apiclient.CommitFilesRequest), variadicArgs...)
+	})
+	return _c
+}
+
+func (_c *RepoServerServiceClient_CommitFiles_Call) Return(commitFilesResponse *apiclient.CommitFilesResponse, err error) *RepoServerServiceClient_CommitFiles_Call {
+	_c.Call.Return(commitFilesResponse, err)
+	return _c
+}
+
+func (_c *RepoServerServiceClient_CommitFiles_Call) RunAndReturn(run func(ctx context.Context, in *apiclient.CommitFilesRequest, opts ...grpc.CallOption) (*apiclient.CommitFilesResponse, error)) *RepoServerServiceClient_CommitFiles_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GenerateManifest provides a mock function for the type RepoServerServiceClient
 func (_mock *RepoServerServiceClient) GenerateManifest(ctx context.Context, in *apiclient.ManifestRequest, opts ...grpc.CallOption) (*apiclient.ManifestResponse, error) {
 	// grpc.CallOption

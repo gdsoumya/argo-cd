@@ -107,6 +107,8 @@ for i in ${PROTO_FILES}; do
         --${GOPROTOBINARY}_out=plugins=grpc:"$GOPATH"/src \
         --grpc-gateway_out=logtostderr=true:"$GOPATH"/src \
         --swagger_out=logtostderr=true:. \
+        --include_imports \
+        --descriptor_set_out=${i}.protoset \
         "$i"
 done
 

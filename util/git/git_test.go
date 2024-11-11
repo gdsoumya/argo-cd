@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -475,16 +476,26 @@ func TestListRevisions(t *testing.T) {
 	client, err := NewClientExt(repoURL, dir, NopCreds{}, false, false, "", "")
 	require.NoError(t, err)
 
-	lsResult, err := client.LsRefs()
+	refs, err := client.LsRefs()
 	require.NoError(t, err)
 
 	testBranch := "master"
 	testTag := "v1.0.0"
 
-	assert.Contains(t, lsResult.Branches, testBranch)
-	assert.Contains(t, lsResult.Tags, testTag)
-	assert.NotContains(t, lsResult.Branches, testTag)
-	assert.NotContains(t, lsResult.Tags, testBranch)
+	var branches, tags []string
+	for _, ref := range refs {
+		refName := ref.Name().String()
+		if after, ok := strings.CutPrefix(refName, "refs/heads/"); ok {
+			branches = append(branches, after)
+		} else if after, ok := strings.CutPrefix(refName, "refs/tags/"); ok {
+			tags = append(tags, after)
+		}
+	}
+
+	assert.Contains(t, branches, testBranch)
+	assert.Contains(t, tags, testTag)
+	assert.NotContains(t, branches, testTag)
+	assert.NotContains(t, tags, testBranch)
 }
 
 func TestLsFiles(t *testing.T) {
@@ -746,8 +757,15 @@ func TestAnnotatedTagHandling(t *testing.T) {
 	refs, err := client.LsRefs()
 	require.NoError(t, err)
 
+	var tags []string
+	for _, ref := range refs {
+		refName := ref.Name().String()
+		if after, ok := strings.CutPrefix(refName, "refs/tags/"); ok {
+			tags = append(tags, after)
+		}
+	}
 	// Verify tag exists in the list and points to a valid commit SHA
-	assert.Contains(t, refs.Tags, "v1.0.0", "Tag v1.0.0 should exist in refs")
+	assert.Contains(t, tags, "v1.0.0", "Tag v1.0.0 should exist in refs")
 }
 
 func TestIsShortRef(t *testing.T) {

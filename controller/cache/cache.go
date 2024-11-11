@@ -16,8 +16,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/argoproj/argo-cd/v3/controller/cache/ak-dashboard"
-
 	clustercache "github.com/argoproj/argo-cd/gitops-engine/pkg/cache"
 	"github.com/argoproj/argo-cd/gitops-engine/pkg/health"
 	"github.com/argoproj/argo-cd/gitops-engine/pkg/utils/kube"
@@ -31,6 +29,8 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+
+	ak_dashboard "github.com/argoproj/argo-cd/v3/controller/cache/ak-dashboard"
 
 	"github.com/argoproj/argo-cd/v3/controller/metrics"
 	"github.com/argoproj/argo-cd/v3/controller/sharding"
