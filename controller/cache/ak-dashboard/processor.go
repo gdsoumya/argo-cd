@@ -7,18 +7,19 @@ import (
 	"sync"
 	"time"
 
-	"github.com/argoproj/argo-cd/v3/pkg/client/listers/application/v1alpha1"
 	clustercache "github.com/argoproj/gitops-engine/pkg/cache"
 	"github.com/argoproj/gitops-engine/pkg/health"
 	"github.com/argoproj/gitops-engine/pkg/utils/kube"
 	log "github.com/sirupsen/logrus"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/argoproj/argo-cd/v3/pkg/client/listers/application/v1alpha1"
 )
 
 var (
@@ -92,7 +93,7 @@ func (p *akProcessor) sendEvents(events *gkEvents, override health.HealthOverrid
 }
 
 func (p *akProcessor) sendClusterInfo(info clustercache.ClusterInfo) {
-	crds, err := p.extensionsClient.CustomResourceDefinitions().List(context.Background(), v1.ListOptions{})
+	crds, err := p.extensionsClient.CustomResourceDefinitions().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		log.Errorf("failed to list CRDs: %v", err)
 	}
@@ -198,8 +199,7 @@ func NewProcessor(appInformer cache.SharedIndexInformer, config *rest.Config) (P
 	}, nil
 }
 
-type noopProcessor struct {
-}
+type noopProcessor struct{}
 
 func (n noopProcessor) StartInfoCollector(cache clustercache.ClusterCache) {
 }

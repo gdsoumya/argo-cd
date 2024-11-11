@@ -3,13 +3,14 @@ package ak_dashboard
 import (
 	"encoding/json"
 
-	"github.com/argoproj/argo-cd/v3/pkg/client/listers/application/v1alpha1"
 	clustercache "github.com/argoproj/gitops-engine/pkg/cache"
 	"github.com/argoproj/gitops-engine/pkg/health"
-	extensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/argoproj/argo-cd/v3/pkg/client/listers/application/v1alpha1"
 )
 
 type ClusterInfo struct {
@@ -31,8 +32,8 @@ type Column struct {
 	JSONPath string `json:"jsonPath,omitempty"`
 }
 
-func NewClusterInfo(info clustercache.ClusterInfo, crds *extensionsv1.CustomResourceDefinitionList) ClusterInfo {
-	columnsByGVK := map[v1.GroupVersionKind][]Column{}
+func NewClusterInfo(info clustercache.ClusterInfo, crds *apiextensionsv1.CustomResourceDefinitionList) ClusterInfo {
+	columnsByGVK := map[metav1.GroupVersionKind][]Column{}
 	for _, crd := range crds.Items {
 		for _, v := range crd.Spec.Versions {
 			columns := make([]Column, 0, len(v.AdditionalPrinterColumns))
@@ -42,7 +43,7 @@ func NewClusterInfo(info clustercache.ClusterInfo, crds *extensionsv1.CustomReso
 					JSONPath: col.JSONPath,
 				})
 			}
-			columnsByGVK[v1.GroupVersionKind{Group: crd.Spec.Group, Kind: crd.Spec.Names.Kind, Version: v.Name}] = columns
+			columnsByGVK[metav1.GroupVersionKind{Group: crd.Spec.Group, Kind: crd.Spec.Names.Kind, Version: v.Name}] = columns
 		}
 	}
 
@@ -52,7 +53,7 @@ func NewClusterInfo(info clustercache.ClusterInfo, crds *extensionsv1.CustomReso
 			Group:   resource.GroupKind.Group,
 			Version: resource.GroupVersionResource.Version,
 			Kind:    resource.GroupKind.Kind,
-			Columns: columnsByGVK[v1.GroupVersionKind{Group: resource.GroupKind.Group, Kind: resource.GroupKind.Kind, Version: resource.GroupVersionResource.Version}],
+			Columns: columnsByGVK[metav1.GroupVersionKind{Group: resource.GroupKind.Group, Kind: resource.GroupKind.Kind, Version: resource.GroupVersionResource.Version}],
 		})
 	}
 

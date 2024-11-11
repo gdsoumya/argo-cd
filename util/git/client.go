@@ -666,7 +666,6 @@ func (m *nativeGitClient) lsRemote(revision string) (string, error) {
 	}
 
 	refs, err := m.LsRefs()
-
 	if err != nil {
 		return "", fmt.Errorf("failed to list refs: %w", err)
 	}

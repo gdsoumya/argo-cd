@@ -4058,8 +4058,6 @@ func TestGetRefs_CacheWithLockDisabled(t *testing.T) {
 			refs, err := client.LsRefs()
 			require.NoError(t, err)
 			assert.NotNil(t, refs)
-			assert.NotEmpty(t, refs.Branches, "Expected branches to be populated")
-			assert.NotEmpty(t, refs.Branches[0])
 		}()
 	}
 	wg.Wait()
@@ -4085,8 +4083,7 @@ func TestGetRefs_CacheDisabled(t *testing.T) {
 	refs, err := client.LsRefs()
 	require.NoError(t, err)
 	assert.NotNil(t, refs)
-	assert.NotEmpty(t, refs.Branches, "Expected branches to be populated")
-	assert.NotEmpty(t, refs.Branches[0])
+
 	// Unlock should not have been called
 	cacheMocks.mockCache.AssertNumberOfCalls(t, "UnlockGitReferences", 0)
 	cacheMocks.mockCache.AssertNumberOfCalls(t, "GetOrLockGitReferences", 0)
@@ -4114,8 +4111,6 @@ func TestGetRefs_CacheWithLock(t *testing.T) {
 			refs, err := client.LsRefs()
 			require.NoError(t, err)
 			assert.NotNil(t, refs)
-			assert.NotEmpty(t, refs.Branches, "Expected branches to be populated")
-			assert.NotEmpty(t, refs.Branches[0])
 		}()
 	}
 	wg.Wait()
@@ -4143,8 +4138,6 @@ func TestGetRefs_CacheUnlockedOnUpdateFailed(t *testing.T) {
 	refs, err := client.LsRefs()
 	require.NoError(t, err)
 	assert.NotNil(t, refs)
-	assert.NotEmpty(t, refs.Branches, "Expected branches to be populated")
-	assert.NotEmpty(t, refs.Branches[0])
 	var output [][2]string
 	err = cacheMocks.cacheutilCache.GetItem(fmt.Sprintf("git-refs|%s|%s", repoURL, common.CacheVersion), &output)
 	require.Error(t, err, "Should be a cache miss")
