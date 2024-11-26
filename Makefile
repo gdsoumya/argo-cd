@@ -328,7 +328,7 @@ ifeq ($(DEV_IMAGE), true)
 # the dist directory is under .dockerignore.
 IMAGE_TAG="dev-$(shell git describe --always --dirty)"
 image: build-ui
-	DOCKER_BUILDKIT=1 $(DOCKER) build --platform=$(TARGET_ARCH) -t argocd-base --target argocd-base .
+	DOCKER_BUILDKIT=1 $(DOCKER) build --platform=$(TARGET_ARCH) --build-arg GH_TOKEN=$(GH_TOKEN) -t argocd-base --target argocd-base .
 	CGO_ENABLED=${CGO_FLAG} GOOS=linux GOARCH=amd64 GODEBUG="tarinsecurepath=0,zipinsecurepath=0" go build -v -ldflags '${LDFLAGS}' -o ${DIST_DIR}/argocd ./cmd
 	ln -sfn ${DIST_DIR}/argocd ${DIST_DIR}/argocd-server
 	ln -sfn ${DIST_DIR}/argocd ${DIST_DIR}/argocd-application-controller
@@ -336,10 +336,10 @@ image: build-ui
 	ln -sfn ${DIST_DIR}/argocd ${DIST_DIR}/argocd-cmp-server
 	ln -sfn ${DIST_DIR}/argocd ${DIST_DIR}/argocd-dex
 	cp Dockerfile.dev dist
-	DOCKER_BUILDKIT=1 $(DOCKER) build --platform=$(TARGET_ARCH) -t $(IMAGE_PREFIX)argocd:$(IMAGE_TAG) -f dist/Dockerfile.dev dist
+	DOCKER_BUILDKIT=1 $(DOCKER) build --platform=$(TARGET_ARCH) --build-arg GH_TOKEN=$(GH_TOKEN) -t $(IMAGE_PREFIX)argocd:$(IMAGE_TAG) -f dist/Dockerfile.dev dist
 else
 image:
-	DOCKER_BUILDKIT=1 $(DOCKER) build -t $(IMAGE_PREFIX)argocd:$(IMAGE_TAG) --platform=$(TARGET_ARCH) .
+	DOCKER_BUILDKIT=1 $(DOCKER) build --build-arg GH_TOKEN=$(GH_TOKEN) -t $(IMAGE_PREFIX)argocd:$(IMAGE_TAG) --platform=$(TARGET_ARCH) .
 endif
 	@if [ "$(DOCKER_PUSH)" = "true" ] ; then $(DOCKER) push $(IMAGE_PREFIX)argocd:$(IMAGE_TAG) ; fi
 

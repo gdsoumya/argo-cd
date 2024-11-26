@@ -27,9 +27,25 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
 
 COPY hack/install.sh hack/tool-versions.sh ./
 COPY hack/installers installers
+COPY hack/get_gh_asset.sh ./hack/get_gh_asset.sh
 
-RUN ./install.sh helm && \
-    INSTALL_PATH=/usr/local/bin ./install.sh kustomize
+ARG GH_TOKEN
+ENV GH_TOKEN=$GH_TOKEN
+
+RUN . ./tool-versions.sh && \
+    echo "HELM_VERSION=$helm3_version" > /tmp/versions && \
+    echo "KUSTOMIZE_VERSION=$kustomize5_version" >> /tmp/versions
+    
+RUN export $(cat /tmp/versions | xargs) && \
+    ./hack/get_gh_asset.sh akuityio fedramp-binaries "helm-v$HELM_VERSION" "helm-v$HELM_VERSION-$(go env GOOS)-$(go env GOARCH).tar.gz" && \
+    tar -xzf "helm-v$HELM_VERSION-$(go env GOOS)-$(go env GOARCH).tar.gz" && \
+    mv "./$(go env GOOS)-$(go env GOARCH)" "/usr/local/bin/helm" && \
+    chmod +x /usr/local/bin/helm
+RUN export $(cat /tmp/versions | xargs) && \
+    ./hack/get_gh_asset.sh akuityio fedramp-binaries "kustomize-v$KUSTOMIZE_VERSION" "kustomize_v${KUSTOMIZE_VERSION}_$(go env GOOS)_$(go env GOARCH).tar.gz" && \
+    tar -xzf "kustomize_v${KUSTOMIZE_VERSION}_$(go env GOOS)_$(go env GOARCH).tar.gz" && \
+    mv "./kustomize" "/usr/local/bin/kustomize" && \
+    chmod +x /usr/local/bin/kustomize
 
 ####################################################################################################
 # Argo CD Base - used as the base for both the release and dev argocd images
