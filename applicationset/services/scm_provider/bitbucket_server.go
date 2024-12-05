@@ -7,10 +7,10 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/argoproj/argo-cd/v3/applicationset/utils"
+
 	bitbucketv1 "github.com/gfleury/go-bitbucket-v1"
 	log "github.com/sirupsen/logrus"
-
-	"github.com/argoproj/argo-cd/v3/applicationset/services"
 )
 
 type BitbucketServerProvider struct {
@@ -49,8 +49,7 @@ func NewBitbucketServerProviderNoAuth(ctx context.Context, url, projectKey strin
 }
 
 func newBitbucketServerProvider(ctx context.Context, bitbucketConfig *bitbucketv1.Configuration, projectKey string, allBranches bool, scmRootCAPath string, insecure bool, caCerts []byte, proxyURL, noProxy string) (*BitbucketServerProvider, error) {
-	bbClient := services.SetupBitbucketClient(ctx, bitbucketConfig, scmRootCAPath, insecure, caCerts, proxyURL, noProxy)
-
+	bbClient := utils.SetupBitbucketClient(ctx, bitbucketConfig, scmRootCAPath, insecure, caCerts, proxyURL, noProxy)
 	return &BitbucketServerProvider{
 		client:      bbClient,
 		projectKey:  projectKey,

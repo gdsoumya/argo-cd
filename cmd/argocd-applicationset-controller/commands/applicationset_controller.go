@@ -12,7 +12,11 @@ import (
 
 	"github.com/argoproj/pkg/v2/stats"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/cache"
 	ctrl "sigs.k8s.io/controller-runtime"
+
+	appclientset "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned"
+	"github.com/argoproj/argo-cd/v3/pkg/client/informers/externalversions/application/v1alpha1"
 
 	"github.com/argoproj/argo-cd/v3/reposerver/apiclient"
 	logutils "github.com/argoproj/argo-cd/v3/util/log"
@@ -28,13 +32,14 @@ import (
 	"github.com/argoproj/argo-cd/v3/util/env"
 	"github.com/argoproj/argo-cd/v3/util/github_app"
 
+	stderrors "errors"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	ctrlcache "sigs.k8s.io/controller-runtime/pkg/cache"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -250,6 +255,18 @@ func NewCommand() *cobra.Command {
 				func(appset *appv1alpha1.ApplicationSet) bool {
 					return utils.IsNamespaceAllowed(applicationSetNamespaces, appset.Namespace)
 				})
+
+			appClientSet := appclientset.NewForConfigOrDie(mgr.GetConfig())
+			projInformer := v1alpha1.NewAppProjectInformer(appClientSet, namespace, 10*time.Minute, cache.Indexers{})
+			go func() {
+				projInformer.Run(ctx.Done())
+			}()
+			if !cache.WaitForCacheSync(ctx.Done(), projInformer.HasSynced) {
+				log.Error(stderrors.New("timed out waiting for AppProject cache to sync"))
+				os.Exit(1)
+			}
+			appsMatcher := utils.NewAppsMatcher(argoCDService, k8sClient, argoCDDB, namespace, argoSettingsMgr, projInformer)
+
 			appsetReconciler := &controllers.ApplicationSetReconciler{
 				Generators:                   topLevelGenerators,
 				Client:                       cacheSyncClient,
@@ -270,6 +287,7 @@ func NewCommand() *cobra.Command {
 				MaxResourcesStatusCount:      maxResourcesStatusCount,
 				ClusterInformer:              clusterInformer,
 				ConcurrentApplicationUpdates: concurrentApplicationUpdates,
+				Matcher:                      appsMatcher,
 			}
 			appsetReconciler.ProgressiveSyncManager = progressivesync.NewManager(cacheSyncClient, appsetReconciler)
 

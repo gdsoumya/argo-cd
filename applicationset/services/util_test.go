@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/argoproj/argo-cd/v3/applicationset/utils"
+
 	bitbucketv1 "github.com/gfleury/go-bitbucket-v1"
 	"github.com/stretchr/testify/require"
 )
@@ -15,8 +17,7 @@ func TestSetupBitbucketClient(t *testing.T) {
 	cfg := &bitbucketv1.Configuration{}
 
 	// Act
-	client := SetupBitbucketClient(ctx, cfg, "", false, nil, "", "")
-
+	client := utils.SetupBitbucketClient(ctx, cfg, "", false, nil, "", "")
 	// Assert
 	require.NotNil(t, client, "expected client to be created")
 	require.NotNil(t, cfg.HTTPClient, "expected HTTPClient to be set")

@@ -79,6 +79,7 @@ type ApplicationSetSpec struct {
 	ApplyNestedSelectors         bool                            `json:"applyNestedSelectors,omitempty" protobuf:"bytes,8,name=applyNestedSelectors"`
 	IgnoreApplicationDifferences ApplicationSetIgnoreDifferences `json:"ignoreApplicationDifferences,omitempty" protobuf:"bytes,9,name=ignoreApplicationDifferences"`
 	TemplatePatch                *string                         `json:"templatePatch,omitempty" protobuf:"bytes,10,name=templatePatch"`
+	Filter                       *ApplicationSetFilter           `json:"filter,omitempty" protobuf:"bytes,11,name=filter"`
 }
 
 type ApplicationPreservedFields struct {
@@ -208,6 +209,10 @@ type ApplicationSetGenerator struct {
 	Selector *metav1.LabelSelector `json:"selector,omitempty" protobuf:"bytes,9,name=selector"`
 
 	Plugin *PluginGenerator `json:"plugin,omitempty" protobuf:"bytes,10,name=plugin"`
+}
+
+type ApplicationSetFilter struct {
+	Expressions []string `json:"expressions,omitempty" protobuf:"bytes,1,rep,name=expressions"`
 }
 
 // ApplicationSetNestedGenerator represents a generator nested within a combination-type generator (MatrixGenerator or
