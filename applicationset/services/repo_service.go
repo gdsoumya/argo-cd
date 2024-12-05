@@ -16,6 +16,7 @@ type argoCDService struct {
 	newFileGlobbingEnabled          bool
 	getGitFilesFromRepoServer       func(ctx context.Context, req *apiclient.GitFilesRequest) (*apiclient.GitFilesResponse, error)
 	getGitDirectoriesFromRepoServer func(ctx context.Context, req *apiclient.GitDirectoriesRequest) (*apiclient.GitDirectoriesResponse, error)
+	generateManifestsFromRepoServer func(ctx context.Context, manifestRequest *apiclient.ManifestRequest) (*apiclient.ManifestResponse, error)
 }
 
 type Repos interface {
@@ -24,6 +25,9 @@ type Repos interface {
 
 	// GetDirectories returns a list of directories (not files) within the target repo
 	GetDirectories(ctx context.Context, repoURL, revision, project string, noRevisionCache, verifyCommit bool) ([]string, error)
+
+	// GenerateManifest generates manifests from a git repository
+	GenerateManifest(ctx context.Context, q *apiclient.ManifestRequest) (*apiclient.ManifestResponse, error)
 }
 
 func NewArgoCDService(db db.ArgoDB, submoduleEnabled bool, repoClientset apiclient.Clientset, newFileGlobbingEnabled bool) Repos {
@@ -46,6 +50,14 @@ func NewArgoCDService(db db.ArgoDB, submoduleEnabled bool, repoClientset apiclie
 			}
 			defer utilio.Close(closer)
 			return client.GetGitDirectories(ctx, dirRequest)
+		},
+		generateManifestsFromRepoServer: func(ctx context.Context, manifestRequest *apiclient.ManifestRequest) (*apiclient.ManifestResponse, error) {
+			closer, client, err := repoClientset.NewRepoServerClient()
+			if err != nil {
+				return nil, fmt.Errorf("error initialising new repo server client: %w", err)
+			}
+			defer utilio.Close(closer)
+			return client.GenerateManifest(ctx, manifestRequest)
 		},
 	}
 }
@@ -91,4 +103,8 @@ func (a *argoCDService) GetDirectories(ctx context.Context, repoURL, revision, p
 		return nil, fmt.Errorf("error retrieving Git Directories: %w", err)
 	}
 	return dirResponse.GetPaths(), nil
+}
+
+func (a *argoCDService) GenerateManifest(ctx context.Context, q *apiclient.ManifestRequest) (*apiclient.ManifestResponse, error) {
+	return a.generateManifestsFromRepoServer(ctx, q)
 }

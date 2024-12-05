@@ -7317,6 +7317,17 @@
         }
       }
     },
+    "v1alpha1ApplicationSetFilter": {
+      "type": "object",
+      "properties": {
+        "expressions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "v1alpha1ApplicationSetGenerator": {
       "description": "ApplicationSetGenerator represents a generator at the top level of an ApplicationSet.",
       "type": "object",
@@ -7460,6 +7471,9 @@
         "applyNestedSelectors": {
           "description": "ApplyNestedSelectors enables selectors defined within the generators of two level-nested matrix or merge generators\nDeprecated: This field is ignored, and the behavior is always enabled. The field will be removed in a future\nversion of the ApplicationSet CRD.",
           "type": "boolean"
+        },
+        "filter": {
+          "$ref": "#/definitions/v1alpha1ApplicationSetFilter"
         },
         "generators": {
           "type": "array",
@@ -7614,6 +7628,9 @@
           "description": "Chart is a Helm chart name, and must be specified for applications sourced from a Helm repo.",
           "type": "string"
         },
+        "customization": {
+          "$ref": "#/definitions/v1alpha1ApplicationSourceCustomization"
+        },
         "directory": {
           "$ref": "#/definitions/v1alpha1ApplicationSourceDirectory"
         },
@@ -7645,6 +7662,24 @@
         "targetRevision": {
           "description": "TargetRevision defines the revision of the source to sync the application to.\nIn case of Git, this can be commit, tag, or branch. If omitted, will equal to HEAD.\nIn case of Helm, this is a semver tag for the Chart's version.",
           "type": "string"
+        }
+      }
+    },
+    "v1alpha1ApplicationSourceCustomization": {
+      "type": "object",
+      "title": "ApplicationSourceCustomization holds the customization for the application source",
+      "properties": {
+        "exclude": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v1alpha1ResourceMatcher"
+          }
+        },
+        "include": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v1alpha1ResourceMatcher"
+          }
         }
       }
     },
@@ -9933,6 +9968,24 @@
           "items": {
             "type": "string"
           }
+        },
+        "name": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha1ResourceMatcher": {
+      "type": "object",
+      "title": "ResourceMatcher holds the filter for the resource",
+      "properties": {
+        "group": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
         },
         "name": {
           "type": "string"

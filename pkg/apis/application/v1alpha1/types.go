@@ -204,6 +204,8 @@ type ApplicationSource struct {
 	Ref string `json:"ref,omitempty" protobuf:"bytes,13,opt,name=ref"`
 	// Name is used to refer to a source and is displayed in the UI. It is used in multi-source Applications.
 	Name string `json:"name,omitempty" protobuf:"bytes,14,opt,name=name"`
+	// Customization holds resource customization options
+	Customization *ApplicationSourceCustomization `json:"customization,omitempty" protobuf:"bytes,15,opt,name=customization"`
 }
 
 // ApplicationSources contains list of required information about the sources of an application

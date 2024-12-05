@@ -83,9 +83,9 @@ type RepoServerServiceClient_CommitFiles_Call struct {
 }
 
 // CommitFiles is a helper method to define mock.On call
-//   - ctx
-//   - in
-//   - opts
+//   - ctx context.Context
+//   - in *apiclient.CommitFilesRequest
+//   - opts ...grpc.CallOption
 func (_e *RepoServerServiceClient_Expecter) CommitFiles(ctx interface{}, in interface{}, opts ...interface{}) *RepoServerServiceClient_CommitFiles_Call {
 	return &RepoServerServiceClient_CommitFiles_Call{Call: _e.mock.On("CommitFiles",
 		append([]interface{}{ctx, in}, opts...)...)}
@@ -93,13 +93,27 @@ func (_e *RepoServerServiceClient_Expecter) CommitFiles(ctx interface{}, in inte
 
 func (_c *RepoServerServiceClient_CommitFiles_Call) Run(run func(ctx context.Context, in *apiclient.CommitFilesRequest, opts ...grpc.CallOption)) *RepoServerServiceClient_CommitFiles_Call {
 	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *apiclient.CommitFilesRequest
+		if args[1] != nil {
+			arg1 = args[1].(*apiclient.CommitFilesRequest)
+		}
+		var arg2 []grpc.CallOption
 		variadicArgs := make([]grpc.CallOption, len(args)-2)
 		for i, a := range args[2:] {
 			if a != nil {
 				variadicArgs[i] = a.(grpc.CallOption)
 			}
 		}
-		run(args[0].(context.Context), args[1].(*apiclient.CommitFilesRequest), variadicArgs...)
+		arg2 = variadicArgs
+		run(
+			arg0,
+			arg1,
+			arg2...,
+		)
 	})
 	return _c
 }

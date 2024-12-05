@@ -10,7 +10,11 @@ import (
 
 	"github.com/argoproj/pkg/v2/stats"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/cache"
 	ctrl "sigs.k8s.io/controller-runtime"
+
+	appclientset "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned"
+	"github.com/argoproj/argo-cd/v3/pkg/client/informers/externalversions/application/v1alpha1"
 
 	"github.com/argoproj/argo-cd/v3/reposerver/apiclient"
 	logutils "github.com/argoproj/argo-cd/v3/util/log"
@@ -24,6 +28,8 @@ import (
 	"github.com/argoproj/argo-cd/v3/common"
 	"github.com/argoproj/argo-cd/v3/util/env"
 	"github.com/argoproj/argo-cd/v3/util/github_app"
+
+	stderrors "errors"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -214,6 +220,17 @@ func NewCommand() *cobra.Command {
 					return utils.IsNamespaceAllowed(applicationSetNamespaces, appset.Namespace)
 				})
 
+			appClientSet := appclientset.NewForConfigOrDie(mgr.GetConfig())
+			projInformer := v1alpha1.NewAppProjectInformer(appClientSet, namespace, 10*time.Minute, cache.Indexers{})
+			go func() {
+				projInformer.Run(ctx.Done())
+			}()
+			if !cache.WaitForCacheSync(ctx.Done(), projInformer.HasSynced) {
+				log.Error(stderrors.New("timed out waiting for AppProject cache to sync"))
+				os.Exit(1)
+			}
+			appsMatcher := utils.NewAppsMatcher(argoCDService, k8sClient, argoCDDB, namespace, argoSettingsMgr, projInformer)
+
 			if err = (&controllers.ApplicationSetReconciler{
 				Generators:                 topLevelGenerators,
 				Client:                     mgr.GetClient(),
@@ -231,6 +248,7 @@ func NewCommand() *cobra.Command {
 				GlobalPreservedAnnotations: globalPreservedAnnotations,
 				GlobalPreservedLabels:      globalPreservedLabels,
 				Metrics:                    &metrics,
+				Matcher:                    appsMatcher,
 			}).SetupWithManager(mgr, enableProgressiveSyncs, maxConcurrentReconciliations); err != nil {
 				log.Error(err, "unable to create controller", "controller", "ApplicationSet")
 				os.Exit(1)

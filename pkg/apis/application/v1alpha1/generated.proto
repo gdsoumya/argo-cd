@@ -275,6 +275,10 @@ message ApplicationSetCondition {
   optional string reason = 5;
 }
 
+message ApplicationSetFilter {
+  repeated string expressions = 1;
+}
+
 // ApplicationSetGenerator represents a generator at the top level of an ApplicationSet.
 message ApplicationSetGenerator {
   optional ListGenerator list = 1;
@@ -382,6 +386,8 @@ message ApplicationSetSpec {
   repeated ApplicationSetResourceIgnoreDifferences ignoreApplicationDifferences = 9;
 
   optional string templatePatch = 10;
+
+  optional ApplicationSetFilter filter = 11;
 }
 
 // ApplicationSetStatus defines the observed state of ApplicationSet
@@ -499,6 +505,16 @@ message ApplicationSource {
 
   // Name is used to refer to a source and is displayed in the UI. It is used in multi-source Applications.
   optional string name = 14;
+
+  // Customization holds resource customization options
+  optional ApplicationSourceCustomization customization = 15;
+}
+
+// ApplicationSourceCustomization holds the customization for the application source
+message ApplicationSourceCustomization {
+  repeated ResourceMatcher include = 1;
+
+  repeated ResourceMatcher exclude = 2;
 }
 
 // ApplicationSourceDirectory holds options for applications of type plain YAML or Jsonnet
@@ -2071,6 +2087,17 @@ message ResourceIgnoreDifferences {
   // ManagedFieldsManagers is a list of trusted managers. Fields mutated by those managers will take precedence over the
   // desired state defined in the SCM and won't be displayed in diffs
   repeated string managedFieldsManagers = 7;
+}
+
+// ResourceMatcher holds the filter for the resource
+message ResourceMatcher {
+  optional string group = 1;
+
+  optional string kind = 2;
+
+  optional string name = 3;
+
+  optional string namespace = 4;
 }
 
 // ResourceNetworkingInfo holds networking-related information for a resource.

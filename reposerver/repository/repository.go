@@ -1555,6 +1555,9 @@ func GenerateManifests(ctx context.Context, appPath, repoRoot, revision string, 
 		if obj == nil {
 			continue
 		}
+		if q.ApplicationSource.Customization != nil && !q.ApplicationSource.Customization.IsResourceIncluded(kube.GetResourceKey(obj)) {
+			continue
+		}
 
 		var targets []*unstructured.Unstructured
 		switch {

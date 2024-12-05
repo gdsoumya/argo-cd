@@ -92,6 +92,7 @@ type ApplicationSetReconciler struct {
 	GlobalPreservedAnnotations []string
 	GlobalPreservedLabels      []string
 	Metrics                    *metrics.ApplicationsetMetrics
+	Matcher                    *utils.AppsMatcher
 }
 
 // +kubebuilder:rbac:groups=argoproj.io,resources=applicationsets,verbs=get;list;watch;create;update;patch;delete
@@ -155,6 +156,15 @@ func (r *ApplicationSetReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	_ = utils.CheckInvalidGenerators(&applicationSetInfo)
 	// desiredApplications is the main list of all expected Applications from all generators in this appset.
 	generatedApplications, applicationSetReason, err := template.GenerateApplications(logCtx, applicationSetInfo, r.Generators, r.Renderer, r.Client)
+	if err == nil {
+		if applicationSetInfo.Spec.Filter != nil {
+			if filtered, filterErr := r.Matcher.FilterApps(ctx, *applicationSetInfo.Spec.Filter, generatedApplications); filterErr == nil {
+				generatedApplications = filtered
+			} else {
+				err = filterErr
+			}
+		}
+	}
 	if err != nil {
 		logCtx.Errorf("unable to generate applications: %v", err)
 		_ = r.setApplicationSetStatusCondition(ctx,

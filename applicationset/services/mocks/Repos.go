@@ -7,6 +7,7 @@ package mocks
 import (
 	"context"
 
+	"github.com/argoproj/argo-cd/v3/reposerver/apiclient"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -35,6 +36,74 @@ type Repos_Expecter struct {
 
 func (_m *Repos) EXPECT() *Repos_Expecter {
 	return &Repos_Expecter{mock: &_m.Mock}
+}
+
+// GenerateManifest provides a mock function for the type Repos
+func (_mock *Repos) GenerateManifest(ctx context.Context, q *apiclient.ManifestRequest) (*apiclient.ManifestResponse, error) {
+	ret := _mock.Called(ctx, q)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GenerateManifest")
+	}
+
+	var r0 *apiclient.ManifestResponse
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *apiclient.ManifestRequest) (*apiclient.ManifestResponse, error)); ok {
+		return returnFunc(ctx, q)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *apiclient.ManifestRequest) *apiclient.ManifestResponse); ok {
+		r0 = returnFunc(ctx, q)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*apiclient.ManifestResponse)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *apiclient.ManifestRequest) error); ok {
+		r1 = returnFunc(ctx, q)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// Repos_GenerateManifest_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GenerateManifest'
+type Repos_GenerateManifest_Call struct {
+	*mock.Call
+}
+
+// GenerateManifest is a helper method to define mock.On call
+//   - ctx context.Context
+//   - q *apiclient.ManifestRequest
+func (_e *Repos_Expecter) GenerateManifest(ctx interface{}, q interface{}) *Repos_GenerateManifest_Call {
+	return &Repos_GenerateManifest_Call{Call: _e.mock.On("GenerateManifest", ctx, q)}
+}
+
+func (_c *Repos_GenerateManifest_Call) Run(run func(ctx context.Context, q *apiclient.ManifestRequest)) *Repos_GenerateManifest_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *apiclient.ManifestRequest
+		if args[1] != nil {
+			arg1 = args[1].(*apiclient.ManifestRequest)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *Repos_GenerateManifest_Call) Return(manifestResponse *apiclient.ManifestResponse, err error) *Repos_GenerateManifest_Call {
+	_c.Call.Return(manifestResponse, err)
+	return _c
+}
+
+func (_c *Repos_GenerateManifest_Call) RunAndReturn(run func(ctx context.Context, q *apiclient.ManifestRequest) (*apiclient.ManifestResponse, error)) *Repos_GenerateManifest_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetDirectories provides a mock function for the type Repos
