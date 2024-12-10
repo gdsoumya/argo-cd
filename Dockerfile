@@ -39,7 +39,7 @@ RUN . ./tool-versions.sh && \
 RUN export $(cat /tmp/versions | xargs) && \
     ./hack/get_gh_asset.sh akuityio fedramp-binaries "helm-v$HELM_VERSION" "helm-v$HELM_VERSION-$(go env GOOS)-$(go env GOARCH).tar.gz" && \
     tar -xzf "helm-v$HELM_VERSION-$(go env GOOS)-$(go env GOARCH).tar.gz" && \
-    mv "./$(go env GOOS)-$(go env GOARCH)" "/usr/local/bin/helm" && \
+    mv "./$(go env GOOS)-$(go env GOARCH)/helm" "/usr/local/bin/helm" && \
     chmod +x /usr/local/bin/helm
 RUN export $(cat /tmp/versions | xargs) && \
     ./hack/get_gh_asset.sh akuityio fedramp-binaries "kustomize-v$KUSTOMIZE_VERSION" "kustomize_v${KUSTOMIZE_VERSION}_$(go env GOOS)_$(go env GOARCH).tar.gz" && \
