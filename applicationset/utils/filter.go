@@ -5,9 +5,12 @@ import (
 	gosync "sync"
 	"time"
 
+	"github.com/argoproj/argo-cd/v3/util/kube"
+	utilskube "github.com/argoproj/gitops-engine/pkg/utils/kube"
 	"github.com/argoproj/pkg/sync"
 	"github.com/golang-jwt/jwt/v5"
 	"google.golang.org/grpc"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/argoproj/argo-cd/v3/applicationset/services"
@@ -20,7 +23,6 @@ import (
 	"github.com/argoproj/argo-cd/v3/util/cache/appstate"
 	"github.com/argoproj/argo-cd/v3/util/db"
 	"github.com/argoproj/argo-cd/v3/util/io"
-	"github.com/argoproj/argo-cd/v3/util/kube"
 	"github.com/argoproj/argo-cd/v3/util/rbac"
 	"github.com/argoproj/argo-cd/v3/util/settings"
 
@@ -85,22 +87,31 @@ func exprFunc(fn func() (interface{}, error)) func() interface{} {
 	}
 }
 
-type informersAdapter struct {
+type srvAdapter struct {
 	cache.SharedIndexInformer
 	alpha1.ApplicationLister
 	app *v1alpha1.Application
+	utilskube.Kubectl
 }
 
-func (i *informersAdapter) Get(_ string) (*v1alpha1.Application, error) {
+func (i *srvAdapter) Get(_ string) (*v1alpha1.Application, error) {
 	return i.app, nil
 }
 
-func (i *informersAdapter) Applications(_ string) alpha1.ApplicationNamespaceLister {
+func (i *srvAdapter) Applications(_ string) alpha1.ApplicationNamespaceLister {
 	return i
 }
 
-func (i *informersAdapter) AddEventHandler(_ cache.ResourceEventHandler) (cache.ResourceEventHandlerRegistration, error) {
+func (i *srvAdapter) AddEventHandler(_ cache.ResourceEventHandler) (cache.ResourceEventHandlerRegistration, error) {
 	return nil, nil
+}
+
+func (i *srvAdapter) GetAPIResources(config *rest.Config, preferred bool, resourceFilter utilskube.ResourceFilter) ([]utilskube.APIResourceInfo, error) {
+	return nil, nil
+}
+
+func (i *srvAdapter) GetServerVersion(config *rest.Config) (string, error) {
+	return "", nil
 }
 
 func (f *AppsMatcher) getContext(ctx context.Context, app *v1alpha1.Application) interface{} {
@@ -110,7 +121,7 @@ func (f *AppsMatcher) getContext(ctx context.Context, app *v1alpha1.Application)
 	enforcer.EnableEnforce(false)
 
 	d := time.Minute
-	adapter := &informersAdapter{app: app}
+	adapter := &srvAdapter{app: app}
 	srv, _ := application.NewServer(f.namespace,
 		f.kubeClientSet,
 		f.appClientSet,
