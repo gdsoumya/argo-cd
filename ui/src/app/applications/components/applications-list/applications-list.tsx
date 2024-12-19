@@ -67,50 +67,59 @@ function loadApplications(q: AppsQuery): Observable<{applications: models.Applic
                     maxName = applications[applications.length - 1].metadata.name;
                 }
             }
-            return merge(
-                from([{applications, stats: applicationsList.stats}]),
-                reloadStats
-                    .pipe(bufferTime(2000))
-                    .pipe(filter(items => items.length > 0))
-                    .pipe(mergeMap(() => services.applications.list({...q, limit: 0, fields: ['stats']})))
-                    .pipe(map(({stats}) => ({applications, stats}))),
-                services.applications
-                    .watch({...q, minName, maxName, fields: APP_WATCH_FIELDS})
-                    .pipe(repeat())
-                    .pipe(retryWhen(errors => errors.pipe(delay(WATCH_RETRY_TIMEOUT))))
-                    // batch events to avoid constant re-rendering and improve UI performance
-                    .pipe(bufferTime(EVENTS_BUFFER_TIMEOUT))
-                    .pipe(
-                        map(appChanges => {
-                            appChanges.forEach(appChange => {
-                                const index = applications.findIndex(item => AppUtils.appInstanceName(item) === AppUtils.appInstanceName(appChange.application));
-                                switch (appChange.type) {
-                                    case 'DELETED':
-                                        if (index > -1) {
-                                            applications.splice(index, 1);
-                                        }
-                                        break;
-                                    default:
-                                        if (index > -1) {
-                                            applications[index] = appChange.application;
-                                        } else {
-                                            applications.unshift(appChange.application);
-                                        }
-                                        break;
-                                }
-                                reloadStats.next(new Date());
-                            });
-                            return {applications, stats: applicationsList.stats, updated: appChanges.length > 0};
-                        })
-                    )
-                    .pipe(filter(item => item.updated))
-                    .pipe(map(item => ({applications: item.applications, stats: item.stats})))
-            );
+            return combineLatest([
+                merge(
+                    from([applicationsList.stats]),
+                    reloadStats
+                        .pipe(bufferTime(2000))
+                        .pipe(filter(items => items.length > 0))
+                        .pipe(mergeMap(() => services.applications.list({...q, limit: 0, fields: ['stats']})))
+                        .pipe(map(({stats}) => stats))
+                ),
+                merge(
+                    from([applications]),
+                    services.applications
+                        .watch({...q, minName, maxName, fields: APP_WATCH_FIELDS})
+                        .pipe(repeat())
+                        .pipe(retryWhen(errors => errors.pipe(delay(WATCH_RETRY_TIMEOUT))))
+                        // batch events to avoid constant re-rendering and improve UI performance
+                        .pipe(bufferTime(EVENTS_BUFFER_TIMEOUT))
+                        .pipe(
+                            map(appChanges => {
+                                appChanges.forEach(appChange => {
+                                    const index = applications.findIndex(item => AppUtils.appInstanceName(item) === AppUtils.appInstanceName(appChange.application));
+                                    switch (appChange.type) {
+                                        case 'DELETED':
+                                            if (index > -1) {
+                                                applications.splice(index, 1);
+                                            }
+                                            break;
+                                        default:
+                                            if (index > -1) {
+                                                applications[index] = appChange.application;
+                                            } else {
+                                                applications.unshift(appChange.application);
+                                            }
+                                            break;
+                                    }
+                                    reloadStats.next(new Date());
+                                });
+                                return {applications, updated: appChanges.length > 0};
+                            })
+                        )
+                        .pipe(filter(item => item.updated))
+                        .pipe(map(item => item.applications))
+                )
+            ]).pipe(map(([stats, applications]) => ({applications, stats})));
         })
     );
 }
 
-const ViewPref = ({children}: {children: (data: {pref: AppsListPreferences & {page: number; pageSize: number; search: string}, healthBarPrefs: HealthStatusBarPreferences}) => React.ReactNode}) => (
+const ViewPref = ({
+    children
+}: {
+    children: (data: {pref: AppsListPreferences & {page: number; pageSize: number; search: string}; healthBarPrefs: HealthStatusBarPreferences}) => React.ReactNode;
+}) => (
     <ObservableQuery>
         {q => (
             <DataLoader
@@ -236,7 +245,10 @@ const SearchBar = (props: {content: string; ctx: ContextApis}) => {
     });
 
     return (
-        <DataLoader input={value} noLoaderOnInputChange={true} load={() => services.applications.list({fields: ['items.metadata.name'], search: value, limit: 100}).then(res => res.items)}>
+        <DataLoader
+            input={value}
+            noLoaderOnInputChange={true}
+            load={() => services.applications.list({fields: ['items.metadata.name'], search: value, limit: 100}).then(res => res.items)}>
             {apps => (
                 <Autocomplete
                     filterSuggestions={true}
