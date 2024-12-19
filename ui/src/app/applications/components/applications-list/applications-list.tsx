@@ -90,45 +90,50 @@ function loadApplications(q: AppsQuery, objectListKind: string): Observable<{app
                 }
             }
 
-            return merge(
-                from([{applications, stats: applicationsList.stats}]),
-                reloadStats
-                    .pipe(bufferTime(2000))
-                    .pipe(filter(items => items.length > 0))
-                    .pipe(mergeMap(() => services.applications.list(objectListKind, {...q, limit: 0, fields: ['stats']})))
-                    .pipe(map(({stats}) => ({applications, stats}))),
-                services.applications
-                    .watch(objectListKind, {...q, minName, maxName, fields: watchFields})
-                    .pipe(repeat())
-                    .pipe(retryWhen(errors => errors.pipe(delay(WATCH_RETRY_TIMEOUT))))
-                    // batch events to avoid constant re-rendering and improve UI performance
-                    .pipe(bufferTime(EVENTS_BUFFER_TIMEOUT))
-                    .pipe(
-                        map(appChanges => {
-                            appChanges.forEach(appChange => {
-                                const index = applications.findIndex(item => AppUtils.appInstanceName(item) === AppUtils.appInstanceName(appChange.application));
-                                switch (appChange.type) {
-                                    case 'DELETED':
-                                        if (index > -1) {
-                                            applications.splice(index, 1);
-                                        }
-                                        break;
-                                    default:
-                                        if (index > -1) {
-                                            applications[index] = appChange.application;
-                                        } else {
-                                            applications.unshift(appChange.application);
-                                        }
-                                        break;
-                                }
-                                reloadStats.next(new Date());
-                            });
-                            return {applications, stats: applicationsList.stats, updated: appChanges.length > 0};
-                        })
-                    )
-                    .pipe(filter(item => item.updated))
-                    .pipe(map(item => ({applications: item.applications, stats: item.stats})))
-            );
+            return combineLatest([
+                merge(
+                    from([applicationsList.stats]),
+                    reloadStats
+                        .pipe(bufferTime(2000))
+                        .pipe(filter(items => items.length > 0))
+                        .pipe(mergeMap(() => services.applications.list(objectListKind, {...q, limit: 0, fields: ['stats']})))
+                        .pipe(map(({stats}) => stats))
+                ),
+                merge(
+                    from([applications]),
+                    services.applications
+                        .watch(objectListKind, {...q, minName, maxName, fields: watchFields})
+                        .pipe(repeat())
+                        .pipe(retryWhen(errors => errors.pipe(delay(WATCH_RETRY_TIMEOUT))))
+                        // batch events to avoid constant re-rendering and improve UI performance
+                        .pipe(bufferTime(EVENTS_BUFFER_TIMEOUT))
+                        .pipe(
+                            map(appChanges => {
+                                appChanges.forEach(appChange => {
+                                    const index = applications.findIndex(item => AppUtils.appInstanceName(item) === AppUtils.appInstanceName(appChange.application));
+                                    switch (appChange.type) {
+                                        case 'DELETED':
+                                            if (index > -1) {
+                                                applications.splice(index, 1);
+                                            }
+                                            break;
+                                        default:
+                                            if (index > -1) {
+                                                applications[index] = appChange.application;
+                                            } else {
+                                                applications.unshift(appChange.application);
+                                            }
+                                            break;
+                                    }
+                                    reloadStats.next(new Date());
+                                });
+                                return {applications, updated: appChanges.length > 0};
+                            })
+                        )
+                        .pipe(filter(item => item.updated))
+                        .pipe(map(item => item.applications))
+                )
+            ]).pipe(map(([stats, applications]) => ({applications, stats})));
         })
     );
 }
