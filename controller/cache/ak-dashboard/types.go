@@ -21,10 +21,11 @@ type ClusterInfo struct {
 }
 
 type APIResource struct {
-	Group   string   `json:"group,omitempty"`
-	Version string   `json:"version,omitempty"`
-	Kind    string   `json:"kind,omitempty"`
-	Columns []Column `json:"columns,omitempty"`
+	Group         string   `json:"group,omitempty"`
+	Version       string   `json:"version,omitempty"`
+	Kind          string   `json:"kind,omitempty"`
+	Columns       []Column `json:"columns,omitempty"`
+	ClusterScoped bool     `json:"clusterScoped,omitempty"`
 }
 
 type Column struct {
@@ -50,10 +51,11 @@ func NewClusterInfo(info clustercache.ClusterInfo, crds *apiextensionsv1.CustomR
 	apiResources := make([]APIResource, 0, len(info.APIResources))
 	for _, resource := range info.APIResources {
 		apiResources = append(apiResources, APIResource{
-			Group:   resource.GroupKind.Group,
-			Version: resource.GroupVersionResource.Version,
-			Kind:    resource.GroupKind.Kind,
-			Columns: columnsByGVK[metav1.GroupVersionKind{Group: resource.GroupKind.Group, Kind: resource.GroupKind.Kind, Version: resource.GroupVersionResource.Version}],
+			Group:         resource.GroupKind.Group,
+			Version:       resource.GroupVersionResource.Version,
+			Kind:          resource.GroupKind.Kind,
+			Columns:       columnsByGVK[metav1.GroupVersionKind{Group: resource.GroupKind.Group, Kind: resource.GroupKind.Kind, Version: resource.GroupVersionResource.Version}],
+			ClusterScoped: !resource.Meta.Namespaced,
 		})
 	}
 
