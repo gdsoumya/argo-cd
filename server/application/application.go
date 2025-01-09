@@ -3353,7 +3353,7 @@ func (s *Server) getAppFilter(ctx context.Context, q *application.ApplicationQue
 		}
 		// Skip any application that is neither in the control plane's namespace
 		// nor in the list of enabled namespaces.
-		if app.Namespace != s.ns && !glob.MatchStringInList(s.enabledNamespaces, app.Namespace, glob.GLOB) {
+		if app.Namespace != s.ns && !glob.MatchStringInList(s.enabledNamespaces, app.Namespace, glob.REGEXP) {
 			return false
 		}
 		if !s.enf.Enforce(ctx.Value("claims"), rbac.ResourceApplications, rbac.ActionGet, app.RBACName(s.ns)) {
