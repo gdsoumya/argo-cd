@@ -316,7 +316,9 @@ const SearchBar = (props: {content: string; objectListKind: string; ctx: Context
         <DataLoader
             input={value}
             noLoaderOnInputChange={true}
-            load={() => services.applications.list(props.objectListKind, {fields: ['items.metadata.name'], search: value, limit: 100}).then(res => res.items)}>
+            load={() =>
+                services.applications.list(props.objectListKind, {fields: ['items.metadata.name', 'items.metadata.namespace'], search: value, limit: 100}).then(res => res.items)
+            }>
             {apps => (
                 <Autocomplete
                     filterSuggestions={true}
