@@ -62,9 +62,11 @@ const LabelsFilter = (props: AppFilterProps) => {
         suggestions.push(labelStats.key);
         labelStats.values.forEach(val => suggestions.push(`${labelStats.key}=${val}`));
     });
-    const labelOptions = suggestions.sort((a, b) => a.localeCompare(b)).map(s => {
-        return {label: s};
-    });
+    const labelOptions = suggestions
+        .sort((a, b) => a.localeCompare(b))
+        .map(s => {
+            return {label: s};
+        });
 
     return <Filter label='LABELS' selected={props.pref.labelsFilter} setSelected={s => props.onChange({...props.pref, labelsFilter: s})} field={true} options={labelOptions} />;
 };

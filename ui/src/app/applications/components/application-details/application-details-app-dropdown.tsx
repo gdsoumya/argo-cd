@@ -35,14 +35,15 @@ export const ApplicationsDetailsAppDropdown = (props: {appName: string}) => {
                             }
                         />
                     </li>
-                    <DataLoader input={appFilter} load={() => services.applications.list({fields: ['items.metadata.name', 'items.metadata.namespace'], search: appFilter, limit: 100})}>
+                    <DataLoader
+                        input={appFilter}
+                        load={() => services.applications.list({fields: ['items.metadata.name', 'items.metadata.namespace'], search: appFilter, limit: 100})}>
                         {apps =>
-                            apps.items
-                                .map(app => (
-                                    <li key={app.metadata.name} onClick={() => ctx.navigation.goto(`/${getAppUrl(app)}`)}>
-                                        {app.metadata.name} {app.metadata.name === props.appName && ' (current)'}
-                                    </li>
-                                ))
+                            apps.items.map(app => (
+                                <li key={app.metadata.name} onClick={() => ctx.navigation.goto(`/${getAppUrl(app)}`)}>
+                                    {app.metadata.name} {app.metadata.name === props.appName && ' (current)'}
+                                </li>
+                            ))
                         }
                     </DataLoader>
                 </ul>
