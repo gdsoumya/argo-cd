@@ -67,6 +67,7 @@ func NewController(
 	client dynamic.Interface,
 	argocdService service.Service,
 	namespace string,
+	settingsNamespace string,
 	applicationNamespaces []string,
 	appLabelSelector string,
 	registry *controller.MetricsRegistry,
@@ -88,7 +89,7 @@ func NewController(
 	if selfServiceNotificationEnabled {
 		notificationConfigNamespace = metav1.NamespaceAll
 	} else {
-		notificationConfigNamespace = namespace
+		notificationConfigNamespace = settingsNamespace
 	}
 	secretInformer := k8s.NewSecretInformer(k8sClient, notificationConfigNamespace, secretName)
 	configMapInformer := k8s.NewConfigMapInformer(k8sClient, notificationConfigNamespace, configMapName)

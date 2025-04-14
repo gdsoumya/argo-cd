@@ -13,6 +13,7 @@ import (
 
 	"github.com/argoproj/argo-cd/v3/common"
 	"github.com/argoproj/argo-cd/v3/reposerver/apiclient"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"github.com/argoproj/argo-cd/v3/util/env"
 	"github.com/argoproj/argo-cd/v3/util/errors"
@@ -116,6 +117,27 @@ func NewCommand() *cobra.Command {
 				return fmt.Errorf("unknown log format '%s'", logFormat)
 			}
 
+			settingsNamespace := namespace
+			if settingsKubeConfigPath, ok := os.LookupEnv("SETTINGS_KUBECONFIG"); ok {
+				clientCfg := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+					&clientcmd.ClientConfigLoadingRules{ExplicitPath: settingsKubeConfigPath},
+					&clientcmd.ConfigOverrides{ClusterInfo: clientcmdapi.Cluster{}})
+				settingsConfig, err := clientCfg.ClientConfig()
+				if err != nil {
+					return fmt.Errorf("failed to create settings REST client config: %w", err)
+				}
+				settingsConfig.UserAgent = fmt.Sprintf("argocd-notifications-controller/%s (%s)", vers.Version, vers.Platform)
+				k8sClient, err = kubernetes.NewForConfig(settingsConfig)
+				if err != nil {
+					return fmt.Errorf("failed to create settings Kubernetes client: %w", err)
+				}
+				settingsNamespace, _, err = clientCfg.Namespace()
+				if err != nil {
+					return fmt.Errorf("failed to determine settings controller's host namespace: %w", err)
+				}
+				log.Infof("Using settings kubeconfig %s", settingsKubeConfigPath)
+			}
+
 			// Recover from panic and log the error using the configured logger instead of the default.
 			defer func() {
 				if r := recover(); r != nil {
@@ -153,7 +175,7 @@ func NewCommand() *cobra.Command {
 			log.Infof("serving metrics on port %d", metricsPort)
 			log.Infof("loading configuration %d", metricsPort)
 
-			ctrl := notificationscontroller.NewController(k8sClient, dynamicClient, argocdService, namespace, applicationNamespaces, appLabelSelector, registry, secretName, configMapName, selfServiceNotificationEnabled)
+			ctrl := notificationscontroller.NewController(k8sClient, dynamicClient, argocdService, namespace, settingsNamespace, applicationNamespaces, appLabelSelector, registry, secretName, configMapName, selfServiceNotificationEnabled)
 			err = ctrl.Init(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to initialize controller: %w", err)
