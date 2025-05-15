@@ -284,7 +284,7 @@ release-cli: clean-debug build-ui
 	make BIN_NAME=argocd-windows-amd64.exe GOOS=windows argocd-all
 
 .PHONY: akuity-release-cli
-release-cli: clean-debug build-ui
+akuity-release-cli: clean-debug build-ui
 	make BIN_NAME=argocd-darwin-amd64 GOOS=darwin argocd-all
 	make BIN_NAME=argocd-darwin-arm64 GOOS=darwin GOARCH=arm64 argocd-all
 ifneq ($(strip $(QUILL_NOTARY_KEY_ID)),)
