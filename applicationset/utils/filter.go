@@ -7,8 +7,10 @@ import (
 
 	utilskube "github.com/argoproj/argo-cd/gitops-engine/pkg/utils/kube"
 	"github.com/argoproj/argo-cd/v3/util/kube"
+
 	"github.com/argoproj/pkg/v2/sync"
 	"github.com/golang-jwt/jwt/v5"
+	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -161,11 +163,15 @@ func (f *AppsMatcher) getContext(ctx context.Context, app *v1alpha1.Application)
 }
 
 // FilterApps filters applications based on the filter
-func (f *AppsMatcher) FilterApps(ctx context.Context, filter v1alpha1.ApplicationSetFilter, apps []v1alpha1.Application) ([]v1alpha1.Application, error) {
+func (f *AppsMatcher) FilterApps(ctx context.Context, logCtx *log.Entry, filter v1alpha1.ApplicationSetFilter, apps []v1alpha1.Application) ([]v1alpha1.Application, error) {
 	var res []v1alpha1.Application
 	for _, app := range apps {
 		match, err := f.Check(ctx, filter, app)
 		if err != nil {
+			if filter.SkipOnFailure {
+				logCtx.WithError(err).Error("SkipOnFailure set to True, skipping error")
+				continue
+			}
 			return nil, err
 		}
 		if match {

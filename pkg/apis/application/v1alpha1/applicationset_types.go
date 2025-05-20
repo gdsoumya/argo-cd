@@ -212,7 +212,8 @@ type ApplicationSetGenerator struct {
 }
 
 type ApplicationSetFilter struct {
-	Expressions []string `json:"expressions,omitempty" protobuf:"bytes,1,rep,name=expressions"`
+	Expressions   []string `json:"expressions,omitempty" protobuf:"bytes,1,rep,name=expressions"`
+	SkipOnFailure bool     `json:"skipOnFailure,omitempty" protobuf:"bytes,2,name=skipOnFailure"`
 }
 
 // ApplicationSetNestedGenerator represents a generator nested within a combination-type generator (MatrixGenerator or

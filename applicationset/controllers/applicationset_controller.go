@@ -200,7 +200,7 @@ func (r *ApplicationSetReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	generatedApplications, applicationSetReason, err := template.GenerateApplications(logCtx, applicationSetInfo, r.Generators, r.Renderer, r.Client)
 	if err == nil {
 		if applicationSetInfo.Spec.Filter != nil {
-			if filtered, filterErr := r.Matcher.FilterApps(ctx, *applicationSetInfo.Spec.Filter, generatedApplications); filterErr == nil {
+			if filtered, filterErr := r.Matcher.FilterApps(ctx, logCtx, *applicationSetInfo.Spec.Filter, generatedApplications); filterErr == nil {
 				generatedApplications = filtered
 			} else {
 				err = filterErr

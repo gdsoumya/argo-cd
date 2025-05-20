@@ -7477,6 +7477,8 @@ spec:
                     items:
                       type: string
                     type: array
+                  skipOnFailure:
+                    type: boolean
                 type: object
               generators:
                 items:
