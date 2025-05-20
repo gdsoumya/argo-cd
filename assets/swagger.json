@@ -7325,6 +7325,9 @@
           "items": {
             "type": "string"
           }
+        },
+        "skipOnFailure": {
+          "type": "boolean"
         }
       }
     },

@@ -277,6 +277,8 @@ message ApplicationSetCondition {
 
 message ApplicationSetFilter {
   repeated string expressions = 1;
+
+  optional bool skipOnFailure = 2;
 }
 
 // ApplicationSetGenerator represents a generator at the top level of an ApplicationSet.
