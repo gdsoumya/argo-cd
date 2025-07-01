@@ -93,7 +93,7 @@ func NewController(
 	}
 	secretInformer := k8s.NewSecretInformer(k8sClient, notificationConfigNamespace, secretName)
 	configMapInformer := k8s.NewConfigMapInformer(k8sClient, notificationConfigNamespace, configMapName)
-	apiFactory := api.NewFactory(settings.GetFactorySettings(argocdService, secretName, configMapName, selfServiceNotificationEnabled), namespace, secretInformer, configMapInformer)
+	apiFactory := api.NewFactory(settings.GetFactorySettings(argocdService, secretName, configMapName, selfServiceNotificationEnabled), settingsNamespace, secretInformer, configMapInformer)
 
 	res := &notificationController{
 		secretInformer:    secretInformer,
