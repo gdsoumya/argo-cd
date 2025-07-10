@@ -6,8 +6,8 @@ import (
 	"time"
 
 	utilskube "github.com/argoproj/argo-cd/gitops-engine/pkg/utils/kube"
-	"github.com/argoproj/argo-cd/v3/util/kube"
 
+	"github.com/argoproj/argo-cd/v3/util/kube"
 	"github.com/argoproj/pkg/v2/sync"
 	"github.com/golang-jwt/jwt/v5"
 	log "github.com/sirupsen/logrus"
