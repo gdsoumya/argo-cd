@@ -11,9 +11,10 @@ import (
 	"sync"
 	"syscall"
 
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+
 	"github.com/argoproj/argo-cd/v3/common"
 	"github.com/argoproj/argo-cd/v3/reposerver/apiclient"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 
 	"github.com/argoproj/argo-cd/v3/util/env"
 	"github.com/argoproj/argo-cd/v3/util/errors"

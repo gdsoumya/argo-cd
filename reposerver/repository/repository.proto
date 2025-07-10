@@ -333,6 +333,27 @@ message CommitFilesResponse {
     string commitSha = 1;
 }
 
+// DeleteFilesRequest is the request to delete files/dirs to a repository.
+message DeleteFilesRequest {
+    // Repo contains repository information including, at minimum, the URL of the repository. Generally it will contain
+    // repo credentials.
+    github.com.argoproj.argo_cd.v3.pkg.apis.application.v1alpha1.Repository repo = 1;
+    // TargetBranch is the branch Argo CD is committing to, i.e. the branch that will be updated.
+    string targetBranch = 3;
+    // CommitMessage is the commit message to use when committing changes.
+    string commitMessage = 5;
+    // Paths contains the paths to files and dirs that are meant to be deleted.
+    repeated string paths = 6;
+    // Username for commit
+    string username = 7;
+    // Email for commit
+    string email = 8;
+}
+// DeleteFilesResponse is the response to the CommitFilesRequest.
+message DeleteFilesResponse {
+    // commitSha is the commit SHA of the files commit.
+    string commitSha = 1;
+}
 
 // ManifestService
 service RepoServerService {
@@ -403,4 +424,7 @@ service RepoServerService {
 
     // CommitFiles
     rpc CommitFiles (CommitFilesRequest) returns (CommitFilesResponse);
+
+    // DeleteFiles
+    rpc DeleteFiles (DeleteFilesRequest) returns (DeleteFilesResponse);
 }

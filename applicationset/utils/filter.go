@@ -5,7 +5,6 @@ import (
 	gosync "sync"
 	"time"
 
-	"github.com/argoproj/argo-cd/v3/util/kube"
 	utilskube "github.com/argoproj/gitops-engine/pkg/utils/kube"
 	"github.com/argoproj/pkg/sync"
 	"github.com/golang-jwt/jwt/v5"
@@ -13,6 +12,8 @@ import (
 	"google.golang.org/grpc"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/argoproj/argo-cd/v3/util/kube"
 
 	"github.com/argoproj/argo-cd/v3/applicationset/services"
 	"github.com/argoproj/argo-cd/v3/common"
