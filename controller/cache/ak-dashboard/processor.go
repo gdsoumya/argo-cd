@@ -28,7 +28,9 @@ var (
 
 	collectClusterInfoInterval = 5 * time.Minute
 
-	httpClientTimeout = 30 * time.Second
+	httpClientTimeout     = 30 * time.Second
+	maxPendingRequests    = 1000
+	maxConcurrentRequests = 100
 
 	clusterInfoURL = "http://localhost:8002/k8s-info"
 	resourceURL    = "http://localhost:8002/k8s-resources"
@@ -59,6 +61,8 @@ type akProcessor struct {
 	appsNs           string
 	initAppsNs       sync.Mutex
 	client           *http.Client
+	outReqs          chan *http.Request
+	initOutReqs      sync.Once
 }
 
 func (p *akProcessor) getAppsNsLister() v1alpha1.ApplicationNamespaceLister {
@@ -72,6 +76,37 @@ func (p *akProcessor) getAppsNsLister() v1alpha1.ApplicationNamespaceLister {
 	return p.appListener.Applications(p.appsNs)
 }
 
+func (p *akProcessor) processOutReqs() {
+	for r := range p.outReqs {
+		resp, err := p.client.Do(r)
+		if err != nil {
+			log.Errorf("failed to send request: %v", err)
+			continue
+		}
+		if resp.StatusCode != http.StatusOK {
+			log.Errorf("received non-OK response: %s", resp.Status)
+		}
+		_ = resp.Body.Close()
+	}
+}
+
+func (p *akProcessor) sendReq(req *http.Request) {
+	p.initOutReqs.Do(func() {
+		p.outReqs = make(chan *http.Request, maxPendingRequests)
+		for range maxConcurrentRequests {
+			go func() {
+				p.processOutReqs()
+			}()
+		}
+	})
+	select {
+	case p.outReqs <- req:
+	default:
+		log.Warn("outgoing request channel is full, dropping request")
+		return
+	}
+}
+
 func (p *akProcessor) sendEvents(events *gkEvents, override health.HealthOverride) {
 	resources := NewResourceEvent(*events, p.getAppsNsLister(), override)
 	jsonData, err := resources.Marshal()
@@ -79,17 +114,12 @@ func (p *akProcessor) sendEvents(events *gkEvents, override health.HealthOverrid
 		log.Errorf("failed to marshal resource events: %v", err)
 	}
 	log.Debug("sending resource events", string(jsonData))
-	req, err := http.NewRequest(http.MethodPost, resourceURL, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, resourceURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		log.Errorf("failed to create request: %v", err)
 		return
 	}
-	resp, err := p.client.Do(req)
-	if err != nil {
-		log.Errorf("failed to send resource events: %v", err)
-		return
-	}
-	defer resp.Body.Close()
+	p.sendReq(req)
 }
 
 func (p *akProcessor) sendClusterInfo(info clustercache.ClusterInfo) {
@@ -104,17 +134,12 @@ func (p *akProcessor) sendClusterInfo(info clustercache.ClusterInfo) {
 		log.Errorf("failed to marshal cluster info: %v", err)
 		return
 	}
-	req, err := http.NewRequest(http.MethodPost, clusterInfoURL, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, clusterInfoURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		log.Errorf("failed to create request: %v", err)
 		return
 	}
-	resp, err := p.client.Do(req)
-	if err != nil {
-		log.Errorf("failed to send cluster info: %v", err)
-		return
-	}
-	defer resp.Body.Close()
+	p.sendReq(req)
 }
 
 func (p *akProcessor) StartInfoCollector(cache clustercache.ClusterCache) {
@@ -201,15 +226,15 @@ func NewProcessor(appInformer cache.SharedIndexInformer, config *rest.Config) (P
 
 type noopProcessor struct{}
 
-func (n noopProcessor) StartInfoCollector(cache clustercache.ClusterCache) {
+func (n noopProcessor) StartInfoCollector(_ clustercache.ClusterCache) {
 }
 
-func (n noopProcessor) OnResourceUpdated(res *unstructured.Unstructured, appName string, override health.HealthOverride) {
+func (n noopProcessor) OnResourceUpdated(_ *unstructured.Unstructured, _ string, _ health.HealthOverride) {
 }
 
-func (n noopProcessor) OnResourceDeleted(res *clustercache.Resource, override health.HealthOverride) {
+func (n noopProcessor) OnResourceDeleted(_ *clustercache.Resource, _ health.HealthOverride) {
 }
 
-func (n noopProcessor) GetCacheSettings(override health.HealthOverride) []clustercache.UpdateSettingsFunc {
+func (n noopProcessor) GetCacheSettings(_ health.HealthOverride) []clustercache.UpdateSettingsFunc {
 	return nil
 }
