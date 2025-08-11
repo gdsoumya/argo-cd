@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
@@ -17,8 +16,7 @@ const (
 	customAppsetGeneratePath = "/api/akuity/generate"
 )
 
-func (s *Server) DelegatedAppsetGenerate(ctx context.Context, appset *v1alpha1.ApplicationSet) ([]v1alpha1.Application, error) {
-	appsetSvc := os.Getenv("AKUITY_APPSET_DELEGATE_SVC")
+func (s *Server) DelegatedAppsetGenerate(ctx context.Context, appsetSvc string, appset *v1alpha1.ApplicationSet) ([]v1alpha1.Application, error) {
 	if appsetSvc != "" {
 		appSetJson, err := json.Marshal(appset)
 		if err != nil {

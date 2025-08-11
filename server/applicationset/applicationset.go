@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"sort"
 	"strconv"
@@ -491,12 +492,16 @@ func (s *Server) Generate(ctx context.Context, q *applicationset.ApplicationSetG
 	// namespace that would lead to error when generating params
 	// for an appset in any namespace feature.
 	// See https://github.com/argoproj/argo-cd/issues/22942
-	apps, err := s.DelegatedAppsetGenerate(ctx, appset)
-	if err != nil {
-		log.Info("delegated appset generator handler failed, falling back to default generator", "error", err.Error())
-	}
-
-	if apps == nil {
+	var (
+		apps []v1alpha1.Application
+	)
+	appsetSvc := os.Getenv("AKUITY_APPSET_DELEGATE_SVC")
+	if appsetSvc != "" {
+		apps, err = s.DelegatedAppsetGenerate(ctx, appsetSvc, appset)
+		if err != nil {
+			return nil, fmt.Errorf("unable to generate Applications of ApplicationSet with delegate: %w\n%s", err, logs.String())
+		}
+	} else {
 		apps, err = s.generateApplicationSetApps(ctx, logger.WithField("applicationset", appset.Name), *appset)
 		if err != nil {
 			return nil, fmt.Errorf("unable to generate Applications of ApplicationSet: %w\n%s", err, logs.String())
