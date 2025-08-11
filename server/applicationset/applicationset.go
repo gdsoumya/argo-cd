@@ -491,9 +491,16 @@ func (s *Server) Generate(ctx context.Context, q *applicationset.ApplicationSetG
 	// namespace that would lead to error when generating params
 	// for an appset in any namespace feature.
 	// See https://github.com/argoproj/argo-cd/issues/22942
-	apps, err := s.generateApplicationSetApps(ctx, logger.WithField("applicationset", appset.Name), *appset)
+	apps, err := s.DelegatedAppsetGenerate(ctx, appset)
 	if err != nil {
-		return nil, fmt.Errorf("unable to generate Applications of ApplicationSet: %w\n%s", err, logs.String())
+		log.Info("delegated appset generator handler failed, falling back to default generator", "error", err.Error())
+	}
+
+	if apps == nil {
+		apps, err = s.generateApplicationSetApps(ctx, logger.WithField("applicationset", appset.Name), *appset)
+		if err != nil {
+			return nil, fmt.Errorf("unable to generate Applications of ApplicationSet: %w\n%s", err, logs.String())
+		}
 	}
 	res := &applicationset.ApplicationSetGenerateResponse{}
 	for i := range apps {

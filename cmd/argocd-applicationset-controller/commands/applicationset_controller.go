@@ -1,6 +1,7 @@
 package command
 
 import (
+	stderrors "errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -31,8 +32,6 @@ import (
 	"github.com/argoproj/argo-cd/v3/common"
 	"github.com/argoproj/argo-cd/v3/util/env"
 	"github.com/argoproj/argo-cd/v3/util/github_app"
-
-	stderrors "errors"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -346,6 +345,7 @@ func NewCommand() *cobra.Command {
 func startWebhookServer(webhookHandler *webhook.WebhookHandler, webhookAddr string) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/webhook", webhookHandler.Handler)
+	mux.HandleFunc("/api/akuity/generate", webhookHandler.AppsetGenerateHandler)
 	go func() {
 		log.Infof("Starting webhook server %s", webhookAddr)
 		err := http.ListenAndServe(webhookAddr, mux)
