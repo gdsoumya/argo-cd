@@ -75,6 +75,9 @@ type Server struct {
 	AllowedScmProviders      []string
 	EnableScmProviders       bool
 	EnableGitHubAPIMetrics   bool
+
+	settingsMgr  *settings.SettingsManager
+	projInformer cache.SharedIndexInformer
 }
 
 func (s *Server) Watch(q *applicationset.ApplicationSetWatchQuery, ws applicationset.ApplicationSetService_WatchServer) error {
@@ -182,6 +185,8 @@ func NewServer(
 	appSetBroadcaster broadcast.Broadcaster[v1alpha1.ApplicationSetWatchEvent],
 	namespace string,
 	projectLock sync.KeyLock,
+	settingsMgr *settings.SettingsManager,
+	projInformer cache.SharedIndexInformer,
 	enabledNamespaces []string,
 	gitSubmoduleEnabled bool,
 	enableNewGitFileGlobbing bool,
@@ -228,6 +233,8 @@ func NewServer(
 		AllowedScmProviders:      allowedScmProviders,
 		EnableScmProviders:       enableScmProviders,
 		EnableGitHubAPIMetrics:   enableGitHubAPIMetrics,
+		settingsMgr:              settingsMgr,
+		projInformer:             projInformer,
 	}
 	return s
 }
@@ -373,8 +380,10 @@ func (s *Server) generateApplicationSetApps(ctx context.Context, logEntry *log.E
 	scmConfig := generators.NewSCMConfig(s.ScmRootCAPath, s.AllowedScmProviders, s.EnableScmProviders, s.EnableGitHubAPIMetrics, github_app.NewAuthCredentials(argoCDDB.(db.RepoCredsDB)), true)
 	argoCDService := services.NewArgoCDService(s.db, s.GitSubmoduleEnabled, s.repoClientSet, s.EnableNewGitFileGlobbing)
 	appSetGenerators := generators.GetGenerators(ctx, s.client, s.k8sClient, s.ns, argoCDService, s.dynamicClient, scmConfig, s.clusterInformer)
+	namespace := s.appsetNamespaceOrDefault(appset.Namespace)
+	appsMatcher := appsetutils.NewAppsMatcher(argoCDService, s.k8sClient, argoCDDB, namespace, s.settingsMgr, s.projInformer)
 
-	apps, _, err := appsettemplate.GenerateApplications(logEntry, appset, appSetGenerators, &appsetutils.Render{}, s.client)
+	apps, _, err := appsettemplate.GenerateApplications(ctx, logEntry, appset, appSetGenerators, &appsetutils.Render{}, s.client, appsMatcher)
 	if err != nil {
 		return nil, fmt.Errorf("error generating applications: %w", err)
 	}
@@ -492,9 +501,7 @@ func (s *Server) Generate(ctx context.Context, q *applicationset.ApplicationSetG
 	// namespace that would lead to error when generating params
 	// for an appset in any namespace feature.
 	// See https://github.com/argoproj/argo-cd/issues/22942
-	var (
-		apps []v1alpha1.Application
-	)
+	var apps []v1alpha1.Application
 	appsetSvc := os.Getenv("AKUITY_APPSET_DELEGATE_SVC")
 	if appsetSvc != "" {
 		apps, err = s.DelegatedAppsetGenerate(ctx, appsetSvc, appset)

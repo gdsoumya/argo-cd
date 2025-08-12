@@ -13,6 +13,9 @@ packages:
       AWSCodeCommitClient: {}
       AWSTaggingClient: {}
       AzureDevOpsClientFactory: {}
+  github.com/argoproj/argo-cd/v3/applicationset/filter:
+    interfaces:
+      Matcher: {}
   github.com/argoproj/argo-cd/v3/applicationset/utils:
     interfaces:
       Renderer: {}

@@ -18,7 +18,7 @@ func (h *WebhookHandler) AppsetGenerateHandler(w http.ResponseWriter, r *http.Re
 		http.Error(w, fmt.Sprintf("failed to decode ApplicationSet: %v", err), http.StatusBadRequest)
 		return
 	}
-	apps, _, err := appsettemplate.GenerateApplications(log.WithField("applicationset", appset.Name), appset, h.generators, &appsetutils.Render{}, h.client)
+	apps, _, err := appsettemplate.GenerateApplications(r.Context(), log.WithField("applicationset", appset.Name), appset, h.generators, &appsetutils.Render{}, h.client, h.appMatcher)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error generating applications: %v", err), http.StatusInternalServerError)
 		return

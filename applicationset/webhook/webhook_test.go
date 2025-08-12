@@ -230,7 +230,7 @@ func TestWebhookHandler(t *testing.T) {
 				fakeAppWithMergeAndNestedGitGenerator("merge-nested-git-github", namespace, "https://github.com/org/repo"),
 			).Build()
 			set := argosettings.NewSettingsManager(t.Context(), fakeClient, namespace)
-			h, err := NewWebhookHandler(webhookParallelism, set, fc, mockGenerators())
+			h, err := NewWebhookHandler(webhookParallelism, set, fc, mockGenerators(), nil)
 			require.NoError(t, err)
 
 			req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/webhook", http.NoBody)

@@ -197,16 +197,7 @@ func (r *ApplicationSetReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// Log a warning if there are unrecognized generators
 	_ = utils.CheckInvalidGenerators(&applicationSetInfo)
 	// desiredApplications is the main list of all expected Applications from all generators in this appset.
-	generatedApplications, applicationSetReason, err := template.GenerateApplications(logCtx, applicationSetInfo, r.Generators, r.Renderer, r.Client)
-	if err == nil {
-		if applicationSetInfo.Spec.Filter != nil {
-			if filtered, filterErr := r.Matcher.FilterApps(ctx, logCtx, *applicationSetInfo.Spec.Filter, generatedApplications); filterErr == nil {
-				generatedApplications = filtered
-			} else {
-				err = filterErr
-			}
-		}
-	}
+	generatedApplications, applicationSetReason, err := template.GenerateApplications(ctx, logCtx, applicationSetInfo, r.Generators, r.Renderer, r.Client, r.Matcher)
 	if err != nil {
 		logCtx.Errorf("unable to generate applications: %v", err)
 		_ = r.setApplicationSetStatusCondition(ctx,

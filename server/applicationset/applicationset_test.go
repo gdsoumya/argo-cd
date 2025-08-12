@@ -106,7 +106,8 @@ func newTestAppSetServerWithEnforcerConfigure(t *testing.T, f func(*rbac.Enforce
 		},
 	})
 	ctx := t.Context()
-	db := db.NewDB(testNamespace, settings.NewSettingsManager(ctx, kubeclientset, testNamespace), kubeclientset)
+	settingsMgr := settings.NewSettingsManager(ctx, kubeclientset, testNamespace)
+	db := db.NewDB(testNamespace, settingsMgr, kubeclientset)
 	_, err := db.CreateRepository(ctx, fakeRepo())
 	require.NoError(t, err)
 	_, err = db.CreateCluster(ctx, fakeCluster())
@@ -206,6 +207,8 @@ func newTestAppSetServerWithEnforcerConfigure(t *testing.T, f func(*rbac.Enforce
 		nil,
 		testNamespace,
 		sync.NewKeyLock(),
+		settingsMgr,
+		projInformer,
 		[]string{testNamespace, "external-namespace"},
 		true,
 		true,

@@ -1,6 +1,7 @@
 package template
 
 import (
+	"context"
 	"fmt"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -13,7 +14,7 @@ import (
 	argov1alpha1 "github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
 )
 
-func GenerateApplications(logCtx *log.Entry, applicationSetInfo argov1alpha1.ApplicationSet, g map[string]generators.Generator, renderer utils.Renderer, client client.Client) ([]argov1alpha1.Application, argov1alpha1.ApplicationSetReasonType, error) {
+func GenerateApplications(ctx context.Context, logCtx *log.Entry, applicationSetInfo argov1alpha1.ApplicationSet, g map[string]generators.Generator, renderer utils.Renderer, client client.Client, appsMatcher utils.Matcher) ([]argov1alpha1.Application, argov1alpha1.ApplicationSetReasonType, error) {
 	var res []argov1alpha1.Application
 
 	var firstError error
@@ -73,6 +74,19 @@ func GenerateApplications(logCtx *log.Entry, applicationSetInfo argov1alpha1.App
 			logCtx.WithField("generator", requestedGenerator).Debugf("apps from generator: %+v", res)
 		} else {
 			logCtx.Infof("generated %d applications", len(res))
+		}
+	}
+
+	// preserving original behavior of filtering only if there are no errors
+	if firstError != nil {
+		return res, applicationSetReason, firstError
+	}
+
+	if applicationSetInfo.Spec.Filter != nil {
+		if filtered, filterErr := appsMatcher.FilterApps(ctx, logCtx, *applicationSetInfo.Spec.Filter, res); filterErr == nil {
+			res = filtered
+		} else {
+			firstError = filterErr
 		}
 	}
 

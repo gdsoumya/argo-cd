@@ -64,6 +64,11 @@ func NewAppsMatcher(repoService services.Repos, kubeClientSet kubernetes.Interfa
 	}
 }
 
+type Matcher interface {
+	// FilterApps filters applications based on the filter
+	FilterApps(ctx context.Context, logCtx *log.Entry, filter v1alpha1.ApplicationSetFilter, apps []v1alpha1.Application) ([]v1alpha1.Application, error)
+}
+
 type AppsMatcher struct {
 	repoService     services.Repos
 	kubeClientSet   kubernetes.Interface
@@ -166,7 +171,7 @@ func (f *AppsMatcher) getContext(ctx context.Context, app *v1alpha1.Application)
 func (f *AppsMatcher) FilterApps(ctx context.Context, logCtx *log.Entry, filter v1alpha1.ApplicationSetFilter, apps []v1alpha1.Application) ([]v1alpha1.Application, error) {
 	var res []v1alpha1.Application
 	for _, app := range apps {
-		match, err := f.Check(ctx, filter, app)
+		match, err := f.check(ctx, filter, app)
 		if err != nil {
 			if filter.SkipOnFailure {
 				logCtx.WithError(err).Error("SkipOnFailure set to True, skipping error")
@@ -182,7 +187,7 @@ func (f *AppsMatcher) FilterApps(ctx context.Context, logCtx *log.Entry, filter 
 }
 
 // Check evaluates the filter against the application
-func (f *AppsMatcher) Check(ctx context.Context, filter v1alpha1.ApplicationSetFilter, app v1alpha1.Application) (bool, error) {
+func (f *AppsMatcher) check(ctx context.Context, filter v1alpha1.ApplicationSetFilter, app v1alpha1.Application) (bool, error) {
 	var programs []*vm.Program
 	for _, item := range filter.Expressions {
 		program, err := expr.Compile(item)
