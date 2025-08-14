@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"encoding/json"
 	gosync "sync"
 	"time"
 
@@ -121,7 +122,7 @@ func (i *srvAdapter) GetServerVersion(config *rest.Config) (string, error) {
 	return "", nil
 }
 
-func (f *AppsMatcher) getContext(ctx context.Context, app *v1alpha1.Application) interface{} {
+func (f *AppsMatcher) getContext(ctx context.Context, app *v1alpha1.Application) (interface{}, error) {
 	enforcer := rbac.NewEnforcer(f.kubeClientSet, f.namespace, common.ArgoCDRBACConfigMapName, func(claims jwt.Claims, rvals ...interface{}) bool {
 		return true
 	})
@@ -159,12 +160,20 @@ func (f *AppsMatcher) getContext(ctx context.Context, app *v1alpha1.Application)
 		}
 		return objs, nil
 	}
+	data, err := json.Marshal(app)
+	if err != nil {
+		return nil, err
+	}
+	appMap := map[string]interface{}{}
+	if err := json.Unmarshal(data, &appMap); err != nil {
+		return nil, err
+	}
 	return map[string]interface{}{
-		"app": app,
+		"app": appMap,
 		"appInfo": map[string]interface{}{
 			"GetManagedResources": exprFunc(getManagedResources),
 		},
-	}
+	}, nil
 }
 
 // FilterApps filters applications based on the filter
@@ -197,7 +206,10 @@ func (f *AppsMatcher) check(ctx context.Context, filter v1alpha1.ApplicationSetF
 		programs = append(programs, program)
 	}
 
-	programCtx := f.getContext(ctx, &app)
+	programCtx, err := f.getContext(ctx, &app)
+	if err != nil {
+		return false, err
+	}
 	for _, program := range programs {
 		out, err := expr.Run(program, programCtx)
 		if err != nil {
