@@ -16,8 +16,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/argoproj/argo-cd/v3/applicationset/utils"
-
+	"github.com/argoproj/argo-cd/v3/applicationset/filter"
 	"github.com/argoproj/argo-cd/v3/applicationset/generators"
 	"github.com/argoproj/argo-cd/v3/common"
 	"github.com/argoproj/argo-cd/v3/pkg/apis/application/v1alpha1"
@@ -45,7 +44,7 @@ type WebhookHandler struct {
 	generators     map[string]generators.Generator
 	queue          chan any
 
-	appMatcher *utils.AppsMatcher
+	appMatcher *filter.AppsMatcher
 }
 
 type gitGeneratorInfo struct {
@@ -76,7 +75,7 @@ type prGeneratorGitlabInfo struct {
 	APIHostname string
 }
 
-func NewWebhookHandler(webhookParallelism int, argocdSettingsMgr *argosettings.SettingsManager, client client.Client, generators map[string]generators.Generator, appMatcher *utils.AppsMatcher) (*WebhookHandler, error) {
+func NewWebhookHandler(webhookParallelism int, argocdSettingsMgr *argosettings.SettingsManager, client client.Client, generators map[string]generators.Generator, appMatcher *filter.AppsMatcher) (*WebhookHandler, error) {
 	// register the webhook secrets stored under "argocd-secret" for verifying incoming payloads
 	argocdSettings, err := argocdSettingsMgr.GetSettings()
 	if err != nil {

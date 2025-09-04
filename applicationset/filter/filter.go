@@ -1,4 +1,4 @@
-package utils
+package filter
 
 import (
 	"context"
@@ -80,10 +80,10 @@ type AppsMatcher struct {
 	projInformer    cache.SharedIndexInformer
 }
 
-func exprFunc(fn func() (interface{}, error)) func() interface{} {
+func exprFunc(fn func() (any, error)) func() any {
 	once := gosync.Once{}
-	return func() interface{} {
-		var res interface{}
+	return func() any {
+		var res any
 		var err error
 		once.Do(func() {
 			res, err = fn()
@@ -114,16 +114,16 @@ func (i *srvAdapter) AddEventHandler(_ cache.ResourceEventHandler) (cache.Resour
 	return nil, nil
 }
 
-func (i *srvAdapter) GetAPIResources(config *rest.Config, preferred bool, resourceFilter utilskube.ResourceFilter) ([]utilskube.APIResourceInfo, error) {
+func (i *srvAdapter) GetAPIResources(_ *rest.Config, _ bool, _ utilskube.ResourceFilter) ([]utilskube.APIResourceInfo, error) {
 	return nil, nil
 }
 
-func (i *srvAdapter) GetServerVersion(config *rest.Config) (string, error) {
+func (i *srvAdapter) GetServerVersion(_ *rest.Config) (string, error) {
 	return "", nil
 }
 
-func (f *AppsMatcher) getContext(ctx context.Context, app *v1alpha1.Application) (interface{}, error) {
-	enforcer := rbac.NewEnforcer(f.kubeClientSet, f.namespace, common.ArgoCDRBACConfigMapName, func(claims jwt.Claims, rvals ...interface{}) bool {
+func (f *AppsMatcher) getContext(ctx context.Context, app *v1alpha1.Application) (any, error) {
+	enforcer := rbac.NewEnforcer(f.kubeClientSet, f.namespace, common.ArgoCDRBACConfigMapName, func(_ jwt.Claims, _ ...any) bool {
 		return true
 	})
 	enforcer.EnableEnforce(false)
@@ -145,12 +145,12 @@ func (f *AppsMatcher) getContext(ctx context.Context, app *v1alpha1.Application)
 		f.settingsManager,
 		f.projInformer,
 		nil, nil, true)
-	getManagedResources := func() (interface{}, error) {
+	getManagedResources := func() (any, error) {
 		resp, err := srv.GetManifests(ctx, &appapi.ApplicationManifestQuery{Name: &app.Name, AppNamespace: &app.Namespace})
 		if err != nil {
 			return nil, err
 		}
-		var objs []interface{}
+		var objs []any
 		for _, item := range resp.Manifests {
 			obj := unstructured.Unstructured{}
 			if err := yaml.Unmarshal([]byte(item), &obj); err != nil {
@@ -164,13 +164,13 @@ func (f *AppsMatcher) getContext(ctx context.Context, app *v1alpha1.Application)
 	if err != nil {
 		return nil, err
 	}
-	appMap := map[string]interface{}{}
+	appMap := map[string]any{}
 	if err := json.Unmarshal(data, &appMap); err != nil {
 		return nil, err
 	}
-	return map[string]interface{}{
+	return map[string]any{
 		"app": appMap,
-		"appInfo": map[string]interface{}{
+		"appInfo": map[string]any{
 			"GetManagedResources": exprFunc(getManagedResources),
 		},
 	}, nil

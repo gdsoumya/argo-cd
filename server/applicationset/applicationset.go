@@ -27,6 +27,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/argoproj/argo-cd/v3/applicationset/filter"
+
 	appsettemplate "github.com/argoproj/argo-cd/v3/applicationset/controllers/template"
 	"github.com/argoproj/argo-cd/v3/applicationset/generators"
 	"github.com/argoproj/argo-cd/v3/applicationset/services"
@@ -381,7 +383,7 @@ func (s *Server) generateApplicationSetApps(ctx context.Context, logEntry *log.E
 	argoCDService := services.NewArgoCDService(s.db, s.GitSubmoduleEnabled, s.repoClientSet, s.EnableNewGitFileGlobbing)
 	appSetGenerators := generators.GetGenerators(ctx, s.client, s.k8sClient, s.ns, argoCDService, s.dynamicClient, scmConfig, s.clusterInformer)
 	namespace := s.appsetNamespaceOrDefault(appset.Namespace)
-	appsMatcher := appsetutils.NewAppsMatcher(argoCDService, s.k8sClient, argoCDDB, namespace, s.settingsMgr, s.projInformer)
+	appsMatcher := filter.NewAppsMatcher(argoCDService, s.k8sClient, argoCDDB, namespace, s.settingsMgr, s.projInformer)
 
 	apps, _, err := appsettemplate.GenerateApplications(ctx, logEntry, appset, appSetGenerators, &appsetutils.Render{}, s.client, appsMatcher)
 	if err != nil {

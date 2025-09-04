@@ -46,6 +46,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/argoproj/argo-cd/v3/applicationset/controllers/template"
+	"github.com/argoproj/argo-cd/v3/applicationset/filter"
 	"github.com/argoproj/argo-cd/v3/applicationset/generators"
 	"github.com/argoproj/argo-cd/v3/applicationset/metrics"
 	"github.com/argoproj/argo-cd/v3/applicationset/progressivesync"
@@ -109,7 +110,7 @@ type ApplicationSetReconciler struct {
 	ClusterInformer              *settings.ClusterInformer
 	ConcurrentApplicationUpdates int
 	ProgressiveSyncManager       *progressivesync.Manager
-	Matcher                      *utils.AppsMatcher
+	Matcher                      *filter.AppsMatcher
 }
 
 var _ progressivesync.Dependencies = (*ApplicationSetReconciler)(nil)

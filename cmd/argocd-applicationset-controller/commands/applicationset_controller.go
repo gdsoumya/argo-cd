@@ -16,6 +16,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/argoproj/argo-cd/v3/applicationset/filter"
 	appclientset "github.com/argoproj/argo-cd/v3/pkg/client/clientset/versioned"
 	"github.com/argoproj/argo-cd/v3/pkg/client/informers/externalversions/application/v1alpha1"
 
@@ -255,7 +256,7 @@ func NewCommand() *cobra.Command {
 				log.Error(stderrors.New("timed out waiting for AppProject cache to sync"))
 				os.Exit(1)
 			}
-			appsMatcher := utils.NewAppsMatcher(argoCDService, k8sClient, argoCDDB, namespace, argoSettingsMgr, projInformer)
+			appsMatcher := filter.NewAppsMatcher(argoCDService, k8sClient, argoCDDB, namespace, argoSettingsMgr, projInformer)
 
 			// start a webhook server that listens to incoming webhook payloads
 			webhookHandler, err := webhook.NewWebhookHandler(webhookParallelism, argoSettingsMgr, mgr.GetClient(), topLevelGenerators, appsMatcher)
