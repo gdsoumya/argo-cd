@@ -114,13 +114,33 @@ func NewResourceEvent(events gkEvents, appLister v1alpha1.ApplicationNamespaceLi
 		applicationInfo := ApplicationInfo{
 			Name: event.appName,
 		}
-		healthStatus, err := health.GetResourceHealth(event.res, override)
-		if err != nil {
-			continue
+		var syncStatus string
+		var healthStatus string
+		if event.appName != "" {
+			if app, err := appLister.Get(event.appName); err == nil {
+				for _, res := range app.Status.Resources {
+					if res.Group == event.res.GroupVersionKind().Group &&
+						res.Kind == event.res.GetKind() &&
+						res.Version == event.res.GroupVersionKind().Version &&
+						res.Name == event.res.GetName() &&
+						res.Namespace == event.res.GetNamespace() {
+						syncStatus = string(res.Status)
+						if res.Health != nil {
+							healthStatus = string(res.Health.Status)
+						}
+						break
+					}
+				}
+			}
 		}
-		if healthStatus != nil {
-			applicationInfo.HealthStatus = string(healthStatus.Status)
+		if healthStatus == "" {
+			hs, _ := health.GetResourceHealth(event.res, override)
+			if hs != nil {
+				healthStatus = string(hs.Status)
+			}
 		}
+		applicationInfo.HealthStatus = healthStatus
+		applicationInfo.SyncStatus = syncStatus
 		updatedObjs = append(updatedObjs, UpdatedResource{
 			ApplicationInfo: applicationInfo,
 			Resource:        *event.res,
