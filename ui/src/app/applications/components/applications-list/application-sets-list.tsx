@@ -432,7 +432,7 @@ export const ApplicationSetsList = (props: RouteComponentProps<any>) => {
                                             labelsFilter: pref.labelsFilter,
                                             healthFilter: pref.healthFilter,
                                             showFavorites: pref.showFavorites,
-                                            favoritesAppList: pref.favoritesAppList,
+                                            favoritesAppUids: pref.favoritesAppUids,
                                             view: pref.view,
                                             hideFilters: pref.hideFilters,
                                             statusBarView: pref.statusBarView,

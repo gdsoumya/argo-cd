@@ -83,7 +83,7 @@ export class AbstractAppsListPreferences {
     public hideFilters: boolean;
     public statusBarView: HealthStatusBarPreferences;
     public showFavorites: boolean;
-    public favoritesAppList: string[];
+    public favoritesAppUids: string[];
 }
 
 export class AppsListPreferences extends AbstractAppsListPreferences {
@@ -174,7 +174,7 @@ const DEFAULT_PREFERENCES: ViewPreferences = {
         operationFilter: new Array<string>(),
         hideFilters: false,
         showFavorites: false,
-        favoritesAppList: new Array<string>(),
+        favoritesAppUids: new Array<string>(),
         statusBarView: {
             showHealthStatusBar: true
         }
@@ -205,10 +205,10 @@ export class ViewPreferencesService {
 
     public updatePreferences(change: Partial<ViewPreferences>) {
         const current = this.preferencesSubj.getValue();
-        const nextPref = Object.assign({}, current, change, {version: minVer});
-        // Normalize appList to ensure all filter arrays are initialized
-        if (nextPref.appList) {
-            this.normalizeAppListPreferences(nextPref.appList);
+        // Shallow merge top-level, but merge nested appList to avoid overwriting its fields
+        const nextPref: ViewPreferences = Object.assign({}, current, change, {version: minVer});
+        if (change && change.appList) {
+            nextPref.appList = Object.assign({}, current.appList, change.appList);
         }
         window.localStorage.setItem(VIEW_PREFERENCES_KEY, JSON.stringify(nextPref));
         this.preferencesSubj.next(nextPref);
@@ -247,6 +247,6 @@ export class ViewPreferencesService {
         appList.autoSyncFilter = appList.autoSyncFilter || [];
         appList.healthFilter = appList.healthFilter || [];
         appList.operationFilter = appList.operationFilter || [];
-        appList.favoritesAppList = appList.favoritesAppList || [];
+        appList.favoritesAppUids = appList.favoritesAppUids || [];
     }
 }

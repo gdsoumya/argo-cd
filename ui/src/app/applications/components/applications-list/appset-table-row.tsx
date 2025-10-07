@@ -17,7 +17,7 @@ export interface AppSetTableRowProps {
 }
 
 export const AppSetTableRow = ({appSet, selected, pref, ctx}: AppSetTableRowProps) => {
-    const favList = pref.appList.favoritesAppList || [];
+    const favList = pref.appList.favoritesAppUids || [];
     const healthStatus = getAppSetHealthStatus(appSet);
     const linkInfo = getApplicationLinkURL(appSet, ctx.baseHref);
     const managedByURL = getManagedByURL(appSet);
@@ -30,7 +30,7 @@ export const AppSetTableRow = ({appSet, selected, pref, ctx}: AppSetTableRowProp
         } else {
             favList.push(appSet.metadata.name);
         }
-        services.viewPreferences.updatePreferences({appList: {...pref.appList, favoritesAppList: favList}});
+        services.viewPreferences.updatePreferences({appList: {...pref.appList, favoritesAppUids: favList}});
     };
 
     const handleExternalLinkClick = (e: React.MouseEvent) => {

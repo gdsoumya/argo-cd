@@ -25,7 +25,7 @@ export interface ApplicationTableRowProps {
 }
 
 export const ApplicationTableRow = ({app, selected, pref, ctx, syncApplication, refreshApplication, deleteApplication}: ApplicationTableRowProps) => {
-    const favList = pref.appList.favoritesAppList || [];
+    const favList = pref.appList.favoritesAppUids || [];
     const healthStatus = app.status.health.status;
     const linkInfo = getApplicationLinkURL(app, ctx.baseHref);
     const source = getAppDefaultSource(app);
@@ -39,7 +39,7 @@ export const ApplicationTableRow = ({app, selected, pref, ctx, syncApplication, 
         } else {
             favList.push(app.metadata.name);
         }
-        services.viewPreferences.updatePreferences({appList: {...pref.appList, favoritesAppList: favList}});
+        services.viewPreferences.updatePreferences({appList: {...pref.appList, favoritesAppUids: favList}});
     };
 
     const handleExternalLinkClick = (e: React.MouseEvent) => {

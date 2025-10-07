@@ -30,6 +30,7 @@ export interface AppsQuery {
     offset?: number;
     limit?: number;
     revisions?: string[];
+    uids?: string[];
 
     fields?: string[];
     exclude?: boolean;

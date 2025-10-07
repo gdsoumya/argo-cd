@@ -57,8 +57,10 @@ message ApplicationQuery {
 	optional int64 offset = 18;
 	// limit
 	optional int64 limit = 19;
+	// the list of application UIDs to restrict returned list to (used for favorites filtering)
+	repeated string uids = 20;
 	// the operation phase filter
-	repeated string operationPhases = 20;
+	repeated string operationPhases = 21;
 	// the selector to restrict returned list to applications only with matched annotations
 	optional string annotationsSelector = 22;
 	// the target application revision

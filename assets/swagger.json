@@ -376,6 +376,16 @@
               "type": "string"
             },
             "collectionFormat": "multi",
+            "description": "the list of application UIDs to restrict returned list to (used for favorites filtering).",
+            "name": "uids",
+            "in": "query"
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi",
             "description": "the operation phase filter.",
             "name": "operationPhases",
             "in": "query"
@@ -871,6 +881,16 @@
             "format": "int64",
             "description": "limit.",
             "name": "limit",
+            "in": "query"
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi",
+            "description": "the list of application UIDs to restrict returned list to (used for favorites filtering).",
+            "name": "uids",
             "in": "query"
           },
           {
@@ -4622,6 +4642,16 @@
             "format": "int64",
             "description": "limit.",
             "name": "limit",
+            "in": "query"
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi",
+            "description": "the list of application UIDs to restrict returned list to (used for favorites filtering).",
+            "name": "uids",
             "in": "query"
           },
           {

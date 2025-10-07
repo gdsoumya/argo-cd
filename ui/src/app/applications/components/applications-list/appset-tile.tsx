@@ -19,7 +19,7 @@ export interface AppSetTileProps {
 
 export const AppSetTile = ({appSet, selected, pref, ctx, tileRef}: AppSetTileProps) => {
     const useAuthSettingsCtx = React.useContext(AuthSettingsCtx);
-    const favList = pref.appList.favoritesAppList || [];
+    const favList = pref.appList.favoritesAppUids || [];
 
     const linkInfo = getApplicationLinkURL(appSet, ctx.baseHref);
     const healthStatus = getAppSetHealthStatus(appSet);
@@ -33,7 +33,7 @@ export const AppSetTile = ({appSet, selected, pref, ctx, tileRef}: AppSetTilePro
         } else {
             favList.push(appSet.metadata.name);
         }
-        services.viewPreferences.updatePreferences({appList: {...pref.appList, favoritesAppList: favList}});
+        services.viewPreferences.updatePreferences({appList: {...pref.appList, favoritesAppUids: favList}});
     };
 
     const handleExternalLinkClick = (e: React.MouseEvent) => {

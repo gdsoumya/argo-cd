@@ -3344,8 +3344,15 @@ func (s *Server) getAppFilter(ctx context.Context, q *application.ApplicationQue
 			minVersion = 0
 		}
 	}
+	var favoriteUids sets.String
+	if len(q.GetUids()) > 0 {
+		favoriteUids = sets.NewString(q.GetUids()...)
+	}
 	return func(app *v1alpha1.Application) bool {
 		if q.GetName() != "" && app.Name != q.GetName() {
+			return false
+		}
+		if favoriteUids != nil && !favoriteUids.Has(string(app.UID)) {
 			return false
 		}
 		if q.GetSearch() != "" && !strings.Contains(app.Name, q.GetSearch()) {

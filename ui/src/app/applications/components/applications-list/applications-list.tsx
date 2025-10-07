@@ -24,6 +24,7 @@ import {ApplicationsRefreshPanel} from '../applications-refresh-panel/applicatio
 import {FlexTopBar} from './flex-top-bar';
 import {useSidebarTarget} from '../../../sidebar/sidebar';
 import {useQuery, useObservableQuery} from '../../../shared/hooks/query';
+import {preserveFavoritesAndSwitchView} from '../../../shared/utils/favorites';
 
 import './applications-list.scss';
 
@@ -35,6 +36,7 @@ const WATCH_RETRY_TIMEOUT = 500;
 const APP_FIELDS = [
     'metadata.name',
     'metadata.namespace',
+    'metadata.uid',
     'metadata.annotations',
     'metadata.labels',
     'metadata.creationTimestamp',
@@ -412,7 +414,7 @@ const ApplicationsToolbar: React.FC<ApplicationsToolbarProps> = ({pref, ctx, hea
                     title='Tiles'
                     onClick={() => {
                         ctx.navigation.goto('.', {view: Tiles});
-                        services.viewPreferences.updatePreferences({appList: {...pref, view: Tiles}});
+                        preserveFavoritesAndSwitchView(pref, Tiles);
                     }}
                 />
                 <i
@@ -420,7 +422,7 @@ const ApplicationsToolbar: React.FC<ApplicationsToolbarProps> = ({pref, ctx, hea
                     title='List'
                     onClick={() => {
                         ctx.navigation.goto('.', {view: List});
-                        services.viewPreferences.updatePreferences({appList: {...pref, view: List}});
+                        preserveFavoritesAndSwitchView(pref, List);
                     }}
                 />
                 <i
@@ -428,7 +430,7 @@ const ApplicationsToolbar: React.FC<ApplicationsToolbarProps> = ({pref, ctx, hea
                     title='Summary'
                     onClick={() => {
                         ctx.navigation.goto('.', {view: Summary});
-                        services.viewPreferences.updatePreferences({appList: {...pref, view: Summary}});
+                        preserveFavoritesAndSwitchView(pref, Summary);
                     }}
                 />
             </div>
@@ -461,6 +463,12 @@ const prefsToQuery = (prefs: AppsListPreferences & {page: number; pageSize: numb
     }
     if (prefs.autoSyncFilter?.length > 0) {
         query.autoSyncEnabled = prefs.autoSyncFilter.findIndex(item => item === 'Enabled') > -1;
+    }
+    if (prefs.showFavorites) {
+        const favorites = Array.from(new Set((prefs.favoritesAppUids || []).filter(uid => !!uid && typeof uid === 'string')));
+        if (favorites.length > 0) {
+            query.uids = favorites;
+        }
     }
     if (prefs.annotationsFilter.length) {
         query.annotationsSelector = prefs.annotationsFilter[0];
@@ -518,25 +526,27 @@ export const ApplicationsList = (props: RouteComponentProps<any> & {objectListKi
         services.applications.get(appName, appNamespace, objectListKind, 'normal');
     }
 
-    function onFilterPrefChanged(ctx: ContextApis, newPref: AppsListPreferences) {
+    function onFilterPrefChanged(ctx: ContextApis, prevPref: AppsListPreferences, newPref: AppsListPreferences) {
         services.viewPreferences.updatePreferences({appList: newPref});
-        ctx.navigation.goto(
-            '.',
-            {
-                proj: newPref.projectsFilter.join(','),
-                sync: newPref.syncFilter.join(','),
-                autoSync: newPref.autoSyncFilter.join(','),
-                health: newPref.healthFilter.join(','),
-                namespace: newPref.namespacesFilter.join(','),
-                targetRevision: newPref.targetRevisionFilter.map(encodeURIComponent).join(','),
-                repo: newPref.reposFilter.map(encodeURIComponent).join(','),
-                cluster: newPref.clustersFilter.join(','),
-                labels: newPref.labelsFilter.map(encodeURIComponent).join(','),
-                annotations: newPref.annotationsFilter.map(encodeURIComponent).join(','),
-                operation: newPref.operationFilter.join(',')
-            },
-            {replace: true}
-        );
+        const navParams: any = {
+            proj: newPref.projectsFilter.join(','),
+            sync: newPref.syncFilter.join(','),
+            autoSync: newPref.autoSyncFilter.join(','),
+            health: newPref.healthFilter.join(','),
+            namespace: newPref.namespacesFilter.join(','),
+            targetRevision: newPref.targetRevisionFilter.map(encodeURIComponent).join(','),
+            repo: newPref.reposFilter.map(encodeURIComponent).join(','),
+            cluster: newPref.clustersFilter.join(','),
+            labels: newPref.labelsFilter.map(encodeURIComponent).join(','),
+            operation: newPref.operationFilter.join(','),
+            annotations: newPref.annotationsFilter.map(encodeURIComponent).join(',')
+        };
+        navParams.showFavorites = newPref.showFavorites ? 'true' : null;
+        // Only force-reset page to 0 when Favorites is toggled ON (false -> true).
+        if (newPref.showFavorites && !prevPref.showFavorites) {
+            navParams.page = 0;
+        }
+        ctx.navigation.goto('.', navParams, {replace: true});
     }
 
     function onAppSetFilterPrefChanged(ctx: ContextApis, newPref: AppSetsListPreferences) {
@@ -645,6 +655,10 @@ export const ApplicationsList = (props: RouteComponentProps<any> & {objectListKi
                                             };
 
                                             if (isListOfApplications) {
+                                                const noFavoritesSelected = pref.showFavorites && (pref.favoritesAppUids || []).length === 0;
+                                                const visibleApps = noFavoritesSelected ? [] : applications;
+                                                const totalForPaginate = noFavoritesSelected ? 0 : stats.total;
+                                                const headerNode = !noFavoritesSelected && stats.total > 1 ? <ApplicationsStatusBar stats={stats} /> : undefined;
                                                 return (
                                                     <React.Fragment>
                                                         <div className='applications-list'>
@@ -666,7 +680,7 @@ export const ApplicationsList = (props: RouteComponentProps<any> & {objectListKi
                                                                             {allpref => (
                                                                                 <ApplicationsFilter
                                                                                     stats={stats}
-                                                                                    onChange={newPrefs => onFilterPrefChanged(ctx, newPrefs)}
+                                                                                    onChange={newPrefs => onFilterPrefChanged(ctx, pref, newPrefs)}
                                                                                     pref={pref}
                                                                                     collapsed={allpref.hideSidebar}
                                                                                 />
@@ -677,8 +691,8 @@ export const ApplicationsList = (props: RouteComponentProps<any> & {objectListKi
 
                                                                     {(pref.view === 'summary' && <ApplicationsSummary stats={stats} />) || (
                                                                         <Paginate
-                                                                            header={stats.total > 1 && <ApplicationsStatusBar stats={stats} />}
-                                                                            total={stats.total}
+                                                                            header={headerNode}
+                                                                            total={totalForPaginate}
                                                                             showHeader={healthBarPrefs.showHealthStatusBar}
                                                                             preferencesKey='applications-list'
                                                                             page={pref.page}
@@ -689,8 +703,9 @@ export const ApplicationsList = (props: RouteComponentProps<any> & {objectListKi
                                                                                         Change filter criteria or&nbsp;
                                                                                         <a
                                                                                             onClick={() => {
+                                                                                                const prev = {...pref};
                                                                                                 AppsListPreferences.clearFilters(pref);
-                                                                                                onFilterPrefChanged(ctx, pref);
+                                                                                                onFilterPrefChanged(ctx, prev, pref);
                                                                                             }}>
                                                                                             clear filters
                                                                                         </a>
@@ -712,8 +727,14 @@ export const ApplicationsList = (props: RouteComponentProps<any> & {objectListKi
                                                                                         a.status.operationState?.finishedAt?.localeCompare(b.status.operationState?.finishedAt)
                                                                                 }
                                                                             ]}
-                                                                            data={applications}
-                                                                            onPageChange={page => ctx.navigation.goto('.', {page})}>
+                                                                            data={visibleApps}
+                                                                            onPageChange={page =>
+                                                                                ctx.navigation.goto('.', {
+                                                                                    page,
+                                                                                    // Preserve showFavorites in URL during pagination
+                                                                                    showFavorites: pref.showFavorites ? 'true' : null
+                                                                                })
+                                                                            }>
                                                                             {data =>
                                                                                 (pref.view === 'tiles' && (
                                                                                     <ApplicationTiles
@@ -830,7 +851,7 @@ export const ApplicationsList = (props: RouteComponentProps<any> & {objectListKi
                                                     labelsFilter: pref.labelsFilter,
                                                     healthFilter: pref.healthFilter,
                                                     showFavorites: pref.showFavorites,
-                                                    favoritesAppList: pref.favoritesAppList,
+                                                    favoritesAppUids: pref.favoritesAppUids,
                                                     view: pref.view,
                                                     hideFilters: pref.hideFilters,
                                                     statusBarView: pref.statusBarView,
