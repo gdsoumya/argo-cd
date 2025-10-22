@@ -271,6 +271,7 @@ type clusterCache struct {
 
 	handlersLock                sync.Mutex
 	handlerKey                  uint64
+	replaceGKHandler            func(gk schema.GroupKind) func()
 	populateResourceInfoHandler OnPopulateResourceInfoHandler
 	resourceUpdatedHandlers     map[uint64]OnResourceUpdatedHandler
 	eventHandlers               map[uint64]OnEventHandler
@@ -428,7 +429,17 @@ func (c *clusterCache) deleteAPIResource(info kube.APIResourceInfo) {
 	}
 }
 
+func SetReplaceGKHandler(handler func(gk schema.GroupKind) func()) UpdateSettingsFunc {
+	return func(cache *clusterCache) {
+		cache.replaceGKHandler = handler
+	}
+}
+
 func (c *clusterCache) replaceResourceCache(gk schema.GroupKind, resources []*Resource, ns string) {
+	if c.replaceGKHandler != nil {
+		done := c.replaceGKHandler(gk)
+		defer done()
+	}
 	objByKey := make(map[kube.ResourceKey]*Resource)
 	for i := range resources {
 		objByKey[resources[i].ResourceKey()] = resources[i]
@@ -926,6 +937,10 @@ func (c *clusterCache) watchEvents(ctx context.Context, api kube.APIResourceInfo
 // call the callback. If we're managing the whole cluster, we call the callback with the client and an empty namespace.
 // If we're managing specific namespaces, we call the callback for each namespace.
 func (c *clusterCache) processApi(client dynamic.Interface, api kube.APIResourceInfo, callback func(resClient dynamic.ResourceInterface, ns string) error) error {
+	if c.replaceGKHandler != nil {
+		done := c.replaceGKHandler(api.GroupKind)
+		defer done()
+	}
 	resClient := client.Resource(api.GroupVersionResource)
 	switch {
 	// if manage whole cluster or resource is cluster level and cluster resources enabled
