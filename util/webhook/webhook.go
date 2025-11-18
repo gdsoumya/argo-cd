@@ -558,9 +558,17 @@ func (a *ArgoCDWebhookHandler) storePreviouslyCachedManifests(app *v1alpha1.Appl
 	}
 	cache.LogDebugManifestCacheKeyFields("moving manifests cache", "webhook app revision changed", oldManifestKey)
 
+	if os.Getenv("REPO_SERVER_REDIS_SERVER") == "" && strings.HasPrefix(destCluster.Server, "http://cluster-") && strings.Contains(destCluster.Server, ":8001") {
+		managedClusterNewKey := oldManifestKey
+		managedClusterNewKey.Revision = change.shaAfter
+		if err := setNewRevisionManifestsOnManagedCluster(destCluster.Name, oldManifestKey, managedClusterNewKey); err != nil {
+			return fmt.Errorf("error setting new revision manifests on managed cluster: %w", err)
+		}
+		return nil
+	}
+
 	newManifestKey := oldManifestKey
 	newManifestKey.Revision = change.shaAfter
-
 	if err := a.repoCache.SetNewRevisionManifests(oldManifestKey, newManifestKey); err != nil {
 		return fmt.Errorf("error setting new revision manifests: %w", err)
 	}
