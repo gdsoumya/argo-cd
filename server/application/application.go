@@ -3352,6 +3352,9 @@ func (s *Server) getAppFilter(ctx context.Context, q *application.ApplicationQue
 		if q.GetName() != "" && app.Name != q.GetName() {
 			return false
 		}
+		if q.GetAppNamespace() != "" && app.Namespace != q.GetAppNamespace() {
+			return false
+		}
 		if favoriteUids != nil && !favoriteUids.Has(string(app.UID)) {
 			return false
 		}
