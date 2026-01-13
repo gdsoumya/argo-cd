@@ -336,7 +336,13 @@ func (s *Server) List(ctx context.Context, q *application.ApplicationQuery) (*v1
 	sort.Slice(filtered, func(i, j int) bool {
 		return filtered[i].Name < filtered[j].Name
 	})
+	// stats for what the user is currently viewing
 	stats := getAppListStats(filtered)
+	// options for dropdowns should come from the full authorized set, not the filtered subset
+	fullStats := getAppListStats(newItems)
+	stats.Destinations = fullStats.Destinations
+	stats.Namespaces = fullStats.Namespaces
+	stats.Labels = fullStats.Labels
 	if q.Offset != nil && len(filtered) > int(*q.Offset) {
 		filtered = filtered[*q.Offset:]
 	}
