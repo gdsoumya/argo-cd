@@ -1432,7 +1432,7 @@ func (s *Server) Watch(q *application.ApplicationQuery, ws application.Applicati
 		})
 		for i := range apps {
 			if filter(apps[i]) {
-				watchedNames[apps[i].Name] = true
+				watchedNames[fmt.Sprintf("%v/%v", apps[i].Namespace, apps[i].Name)] = true
 				sendEvent(*apps[i], watch.Added)
 			}
 		}
@@ -1443,12 +1443,12 @@ func (s *Server) Watch(q *application.ApplicationQuery, ws application.Applicati
 		select {
 		case event := <-events:
 			if filter(&event.Application) {
-				watchedNames[event.Application.Name] = true
+				watchedNames[fmt.Sprintf("%v/%v", event.Application.Namespace, event.Application.Name)] = true
 				sendEvent(event.Application, event.Type)
-			} else if watchedNames[event.Application.Name] {
+			} else if watchedNames[fmt.Sprintf("%v/%v", event.Application.Namespace, event.Application.Name)] {
 				// If an app was previously sent, but no longer matches the filter, send a DELETED event
 				sendEvent(event.Application, watch.Deleted)
-				delete(watchedNames, event.Application.Name)
+				delete(watchedNames, fmt.Sprintf("%v/%v", event.Application.Namespace, event.Application.Name))
 			}
 
 		case <-ws.Context().Done():
