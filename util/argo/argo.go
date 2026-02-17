@@ -40,6 +40,16 @@ const (
 
 var ErrAnotherOperationInProgress = status.Errorf(codes.FailedPrecondition, "another operation is already in progress")
 
+// AkpRepoServerContext adds akp destination metadata headers to the context for
+// repo-server proxy routing. This allows the repo-server proxy to route
+// requests to the correct cluster's repo-server.
+func AkpRepoServerContext(ctx context.Context, app *argoappv1.Application) context.Context {
+	return metadata.AppendToOutgoingContext(ctx,
+		"akp-dest-server", app.Spec.Destination.Server,
+		"akp-dest-namespace", app.Spec.Destination.Namespace,
+		"akp-dest-name", app.Spec.Destination.Name)
+}
+
 // AugmentSyncMsg enrich the K8s message with user-relevant information
 func AugmentSyncMsg(res common.ResourceSyncResult, apiResourceInfoGetter func() ([]kube.APIResourceInfo, error)) (string, error) {
 	if strings.Contains(res.Message, "the server could not find the requested resource") {
@@ -852,8 +862,7 @@ func verifyGenerateManifests(
 		}
 
 		// akp custom metadata for inferring cluster destination
-		ctx = metadata.AppendToOutgoingContext(ctx, "akp-dest-server", app.Spec.Destination.Server, "akp-dest-namespace", app.Spec.Destination.Namespace, "akp-dest-name", app.Spec.Destination.Name)
-
+		ctx = AkpRepoServerContext(ctx, app)
 		appLabelKey, err := settingsMgr.GetAppInstanceLabelKey()
 		if err != nil {
 			conditions = append(conditions, argoappv1.ApplicationCondition{
