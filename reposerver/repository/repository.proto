@@ -331,6 +331,8 @@ message CommitFilesRequest {
     string username = 7;
     // Email for commit
     string email = 8;
+    // Parent branch name
+    string parentBranch = 9;
 }
 
 // PathDetails holds information about files to be written to a particular path

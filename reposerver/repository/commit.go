@@ -46,7 +46,11 @@ func (s *Service) handleCommitRequest(ctx context.Context, logCtx *log.Entry, r 
 
 	logCtx.Debugf("Checking out target branch %s", r.TargetBranch)
 	var out string
-	out, err = gitClient.CheckoutOrOrphan(r.TargetBranch, false)
+	if r.ParentBranch == "" {
+		out, err = gitClient.CheckoutOrOrphan(r.TargetBranch, false)
+	} else {
+		out, err = gitClient.CheckoutOrNew(r.TargetBranch, r.ParentBranch, false)
+	}
 	if err != nil {
 		return out, "", fmt.Errorf("failed to checkout sync branch: %w", err)
 	}
