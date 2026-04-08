@@ -1402,9 +1402,15 @@ func (s *Server) Watch(q *application.ApplicationQuery, ws application.Applicati
 	if q.Name != nil {
 		logCtx = logCtx.WithField("application", *q.Name)
 	}
-	filter, err := s.getAppFilter(ws.Context(), q)
+	appFilter, err := s.getAppFilter(ws.Context(), q)
 	if err != nil {
 		return fmt.Errorf("error getting application filter: %w", err)
+	}
+	filter := func(app *v1alpha1.Application) bool {
+		if !s.enf.Enforce(ws.Context().Value("claims"), rbac.ResourceApplications, rbac.ActionGet, app.RBACName(s.ns)) {
+			return false
+		}
+		return appFilter(app)
 	}
 
 	sendEvent := func(a v1alpha1.Application, eventType watch.EventType) {
@@ -3343,7 +3349,9 @@ func (s *Server) ServerSideDiff(ctx context.Context, q *application.ApplicationS
 	}, nil
 }
 
-func (s *Server) getAppFilter(ctx context.Context, q *application.ApplicationQuery) (func(app *v1alpha1.Application) bool, error) {
+// getAppFilter returns a predicate that matches apps against the query parameters.
+// Callers are responsible for performing RBAC checks; this function does not enforce access control.
+func (s *Server) getAppFilter(_ context.Context, q *application.ApplicationQuery) (func(app *v1alpha1.Application) bool, error) {
 	selector, err := labels.Parse(q.GetSelector())
 	if err != nil {
 		return nil, fmt.Errorf("error parsing the selector: %w", err)
@@ -3358,9 +3366,9 @@ func (s *Server) getAppFilter(ctx context.Context, q *application.ApplicationQue
 			minVersion = 0
 		}
 	}
-	var favoriteUids sets.String
+	var favoriteUids sets.Set[string]
 	if len(q.GetUids()) > 0 {
-		favoriteUids = sets.NewString(q.GetUids()...)
+		favoriteUids = sets.New[string](q.GetUids()...)
 	}
 	return func(app *v1alpha1.Application) bool {
 		if q.GetName() != "" && app.Name != q.GetName() {
@@ -3380,11 +3388,6 @@ func (s *Server) getAppFilter(ctx context.Context, q *application.ApplicationQue
 		if app.Namespace != s.ns && !glob.MatchStringInList(s.enabledNamespaces, app.Namespace, glob.REGEXP) {
 			return false
 		}
-		if !s.enf.Enforce(ctx.Value("claims"), rbac.ResourceApplications, rbac.ActionGet, app.RBACName(s.ns)) {
-			// do not emit apps user does not have accessing
-			return false
-		}
-
 		if appVersion, err := strconv.Atoi(app.ResourceVersion); err == nil && appVersion < minVersion {
 			return false
 		}
@@ -3426,15 +3429,15 @@ func (s *Server) getAppFilter(ctx context.Context, q *application.ApplicationQue
 			}
 		}
 
-		if len(q.HealthStatuses) > 0 && !sets.NewString(q.HealthStatuses...).Has(string(app.Status.Health.Status)) {
+		if len(q.HealthStatuses) > 0 && !sets.New[string](q.HealthStatuses...).Has(string(app.Status.Health.Status)) {
 			return false
 		}
 
-		if len(q.SyncStatuses) > 0 && !sets.NewString(q.SyncStatuses...).Has(string(app.Status.Sync.Status)) {
+		if len(q.SyncStatuses) > 0 && !sets.New[string](q.SyncStatuses...).Has(string(app.Status.Sync.Status)) {
 			return false
 		}
 
-		if projects := getProjectsFromApplicationQuery(*q); len(projects) > 0 && !sets.NewString(projects...).Has(app.Spec.GetProject()) {
+		if projects := getProjectsFromApplicationQuery(*q); len(projects) > 0 && !sets.New[string](projects...).Has(app.Spec.GetProject()) {
 			return false
 		}
 
@@ -3464,10 +3467,10 @@ func (s *Server) getAppFilter(ctx context.Context, q *application.ApplicationQue
 			}
 		}
 
-		if len(q.GetNamespaces()) > 0 && !sets.NewString(q.GetNamespaces()...).Has(app.Spec.Destination.Namespace) {
+		if len(q.GetNamespaces()) > 0 && !sets.New[string](q.GetNamespaces()...).Has(app.Spec.Destination.Namespace) {
 			return false
 		}
-		if len(q.GetOperationPhases()) > 0 && !sets.NewString(q.GetOperationPhases()...).Has(getOperationPhase(app)) {
+		if len(q.GetOperationPhases()) > 0 && !sets.New[string](q.GetOperationPhases()...).Has(getOperationPhase(app)) {
 			return false
 		}
 
