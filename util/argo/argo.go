@@ -461,7 +461,7 @@ func validateRepo(ctx context.Context,
 		if err != nil {
 			return nil, err
 		}
-		if err := TestRepoWithKnownType(ctx, repoClient, repo, source.IsHelm(), source.IsHelmOci(), source.IsOCI()); err != nil {
+		if err := TestRepoWithKnownType(AkpRepoServerContext(ctx, app), repoClient, repo, source.IsHelm(), source.IsHelmOci(), source.IsOCI()); err != nil {
 			errMessage = fmt.Sprintf("repositories not accessible: %v: %v", repo.StringForLogging(), err)
 		}
 		repoAccessible := false
